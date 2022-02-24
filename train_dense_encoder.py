@@ -54,6 +54,43 @@ logger = logging.getLogger()
 setup_logger(logger)
 
 
+
+# My helper functions
+#####################################################################################################
+def print_samples_batch(samples_batch):
+    for i, sample in enumerate(samples_batch):  # Each sample: BiEncoderSample in dpr/data/biencoder_data.py
+        print('i:', i)
+        print('sample.query:', sample.query)
+        print('sample.positive_passages:', sample.positive_passages)  # Each passage: namedtuple with "text" and "title"
+        print('sample.negative_passages:', sample.negative_passages)
+        print('sample.hard_negative_passages:', sample.hard_negative_passages)
+        print()
+
+def print_biencoder_batch(biencoder_batch):  # Each biencoder_batch: namedtuple
+    print('biencoder_batch.question_ids\n', biencoder_batch.question_ids, '\n', biencoder_batch.question_ids.size())
+    print('biencoder_batch.question_segments\n', biencoder_batch.question_segments, '\n', biencoder_batch.question_segments.size())
+    print('biencoder_batch.context_ids\n', biencoder_batch.context_ids, '\n', biencoder_batch.context_ids.size())
+    print('biencoder_batch.ctx_segments\n', biencoder_batch.ctx_segments, '\n', biencoder_batch.ctx_segments.size())
+    print('biencoder_batch.is_positive', biencoder_batch.is_positive)
+    print('biencoder_batch.hard_negatives', biencoder_batch.hard_negatives)
+    print('biencoder_batch.encoder_type', biencoder_batch.encoder_type)
+
+def print_forward(input, q_attn_mask, ctx_attn_mask, encoder_type, rep_positions, local_q_vector, local_ctx_vectors, loss, is_correct):
+    torch.set_printoptions(profile="full")
+    print_biencoder_batch(input)
+    print('q_attn_mask\n', q_attn_mask.long(), '\n', q_attn_mask.size())
+    print('ctx_attn_mask\n', ctx_attn_mask.long(), '\n', ctx_attn_mask.size())
+    torch.set_printoptions(profile="default")
+
+    print('encoder_type', encoder_type)
+    print('rep_positions', rep_positions)
+    print('local_q_vector\n', local_q_vector, '\n', local_q_vector.size())
+    print('local_ctx_vectors\n', local_ctx_vectors, '\n', local_ctx_vectors.size())
+    print('loss', loss)
+    print('is_correct', is_correct)
+#####################################################################################################
+
+
 class BiEncoderTrainer(object):
     """
     BiEncoder training pipeline component. Can be used to initiate or resume training and validate the trained model
@@ -462,8 +499,12 @@ class BiEncoderTrainer(object):
 
             # to be able to resume shuffled ctx- pools
             data_iteration = train_data_iterator.get_iteration()
-            random.seed(seed + epoch + data_iteration)
+            random.seed(seed + epoch + data_iteration)  # TODO: check
 
+            #######################################################################################################
+            #print_samples_batch(samples_batch)
+            #exit()
+            #######################################################################################################
             biencoder_batch = BiEncoder.create_biencoder_input2(
                 samples_batch,
                 self.tensorizer,
@@ -474,6 +515,10 @@ class BiEncoderTrainer(object):
                 shuffle_positives=shuffle_positives,
                 query_token=special_token,
             )
+            #######################################################################################################
+            #print_biencoder_batch(biencoder_batch)
+            #exit()
+            #######################################################################################################
 
             # get the token to be used for representation selection
             from dpr.data.biencoder_data import DEFAULT_SELECTOR
@@ -671,6 +716,8 @@ def _calc_loss(
     return loss, is_correct
 
 
+
+
 def _do_biencoder_fwd_pass(
     model: nn.Module,
     input: BiEncoderBatch,
@@ -730,6 +777,11 @@ def _do_biencoder_fwd_pass(
         loss = loss.mean()
     if cfg.train.gradient_accumulation_steps > 1:
         loss = loss / cfg.train.gradient_accumulation_steps
+
+    #######################################################################################################
+    #print_forward(input, q_attn_mask, ctx_attn_mask, encoder_type, rep_positions, local_q_vector, local_ctx_vectors, loss, is_correct)
+    #exit()
+    #######################################################################################################
     return loss, is_correct
 
 
