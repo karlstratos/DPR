@@ -44,12 +44,26 @@ CUDA_VISIBLE_DEVICES=0 python dense_retriever.py model_file=/common/home/jl2529/
 python evaluate.py /data/local/DPR_runs/pretrained_nq/out.json
 ```
 
+This yields the following results:
+```
+k=1     k=5     k=20    k=100   filename        num_queries
+46.4%   68.6%   80.1%   86.1%   out.json        3610
+```
+
 # Training
 
 ```
 rm -rf /data/local/DPR_runs/nq
 time CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 python -m torch.distributed.launch --nproc_per_node=8 train_dense_encoder.py train=biencoder_nq train_datasets=[nq_train] dev_datasets=[nq_dev] output_dir=/data/local/DPR_runs/nq > /data/local/DPR_runs/nq.log  # This takes up ~21G of memory on each GPU. The total training time is 3-4 hours using A100s.
 for i in 0 1 2 3; do CUDA_VISIBLE_DEVICES=0 python generate_dense_embeddings.py model_file=/data/local/DPR_runs/nq/dpr_biencoder.34 ctx_src=dpr_wiki shard_id=${i} num_shards=16 out_file='/data/local/DPR_runs/nq/embs' batch_size=1024; done;
+CUDA_VISIBLE_DEVICES=0 python dense_retriever.py model_file=/data/local/DPR_runs/nq/dpr_biencoder.34 qa_dataset=nq_test ctx_datatsets=[dpr_wiki] encoded_ctx_files=[\"/data/local/DPR_runs/nq/embs*\"] out_file=/data/local/DPR_runs/nq/out.json
+python evaluate.py /data/local/DPR_runs/nq/out.json
+```
+
+This yields the following result:
+```
+k=1     k=5     k=20    k=100   filename        num_queries
+46.0%   68.2%   79.1%   86.3%   out.json        3610
 ```
 
 # Debugging
