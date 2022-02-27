@@ -293,6 +293,12 @@ class BiEncoder(nn.Module):
 
             current_ctxs_len = len(ctx_tensors)
 
+            #######################################################################################################
+            #print('\n' + question)
+            #for ctx in all_ctxs:
+            #    print(ctx.text[:100])
+            #    print(ctx.title)
+            #######################################################################################################
             sample_ctxs_tensors = [
                 tensorizer.text_to_tensor(ctx.text, title=ctx.title if (insert_title and ctx.title) else None)
                 for ctx in all_ctxs
@@ -317,7 +323,7 @@ class BiEncoder(nn.Module):
                     question_tensors.append(query_span)
                 else:
                     question_tensors.append(tensorizer.text_to_tensor(" ".join([query_token, question])))
-            else:
+            else:  # This
                 question_tensors.append(tensorizer.text_to_tensor(question))
 
         ctxs_tensor = torch.cat([ctx.view(1, -1) for ctx in ctx_tensors], dim=0)

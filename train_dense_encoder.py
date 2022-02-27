@@ -67,6 +67,7 @@ def print_samples_batch(samples_batch):
         print()
 
 def print_biencoder_batch(biencoder_batch):  # Each biencoder_batch: namedtuple
+    torch.set_printoptions(profile="full")
     print('biencoder_batch.question_ids\n', biencoder_batch.question_ids, '\n', biencoder_batch.question_ids.size())
     print('biencoder_batch.question_segments\n', biencoder_batch.question_segments, '\n', biencoder_batch.question_segments.size())
     print('biencoder_batch.context_ids\n', biencoder_batch.context_ids, '\n', biencoder_batch.context_ids.size())
@@ -76,12 +77,11 @@ def print_biencoder_batch(biencoder_batch):  # Each biencoder_batch: namedtuple
     print('biencoder_batch.encoder_type', biencoder_batch.encoder_type)
 
 def print_forward(input, q_attn_mask, ctx_attn_mask, encoder_type, rep_positions, local_q_vector, local_ctx_vectors, loss, is_correct):
-    torch.set_printoptions(profile="full")
     print_biencoder_batch(input)
     print('q_attn_mask\n', q_attn_mask.long(), '\n', q_attn_mask.size())
     print('ctx_attn_mask\n', ctx_attn_mask.long(), '\n', ctx_attn_mask.size())
-    torch.set_printoptions(profile="default")
 
+    torch.set_printoptions(profile="default")
     print('encoder_type', encoder_type)
     print('rep_positions', rep_positions)
     print('local_q_vector\n', local_q_vector, '\n', local_q_vector.size())
@@ -511,7 +511,7 @@ class BiEncoderTrainer(object):
                 True,
                 num_hard_negatives,
                 num_other_negatives,
-                shuffle=True,
+                shuffle=self.cfg.train.shuffle,  # Can turn off shuffling
                 shuffle_positives=shuffle_positives,
                 query_token=special_token,
             )
@@ -562,7 +562,7 @@ class BiEncoderTrainer(object):
             if i % log_result_step == 0:
                 lr = self.optimizer.param_groups[0]["lr"]
                 logger.info(
-                    "Epoch: %d: Step: %d/%d, loss=%f, lr=%f",
+                    "Epoch: %d: Step: %d/%d, loss=%f, lr=%f <-----------------------------------",
                     epoch,
                     data_iteration,
                     epoch_batches,
@@ -611,8 +611,9 @@ class BiEncoderTrainer(object):
             epoch,
             meta_params,
         )
-        torch.save(state._asdict(), cp)
-        logger.info("Saved checkpoint at %s", cp)
+        if not cfg.train.skip_saving:
+            torch.save(state._asdict(), cp)
+            logger.info("Saved checkpoint at %s", cp)
         return cp
 
     def _load_saved_state(self, saved_state: CheckpointState):

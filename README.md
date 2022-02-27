@@ -70,10 +70,6 @@ k=1     k=5     k=20    k=100   filename        num_queries
 
 Uncomment print functions in `train_dense_encoder.py`.
 
-## No Shuffling
-
-Use all data.
 ```
-CUDA_VISIBLE_DEVICES=0 python train_dense_encoder.py train=biencoder_nq train_datasets=[nq_train2] dev_datasets=[nq_train2] train.batch_size=2 train.dev_batch_size=2 train.num_train_epochs=1 output_dir=/data/local/DPR_runs/toy
-CUDA_VISIBLE_DEVICES=0 python train_dense_encoder.py train=biencoder_nq train_datasets=[nq_train10] dev_datasets=[nq_train10] train.batch_size=10 train.dev_batch_size=10 train.num_train_epochs=1 output_dir=/data/local/DPR_runs/toy
+CUDA_VISIBLE_DEVICES= python train_dense_encoder.py train=biencoder_nq train_datasets=[nq_train2] dev_datasets=[nq_train2] train.batch_size=2 train.dev_batch_size=2 train.num_train_epochs=5 output_dir=/data/local/DPR_runs/toy train.shuffle=False encoder.dropout=0 train.learning_rate=1e-4 train.warmup_steps=2 train.log_batch_step=1 train.skip_saving=True
 ```

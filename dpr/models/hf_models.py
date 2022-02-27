@@ -29,6 +29,8 @@ logger = logging.getLogger(__name__)
 
 def get_bert_biencoder_components(cfg, inference_only: bool = False, **kwargs):
     dropout = cfg.encoder.dropout if hasattr(cfg.encoder, "dropout") else 0.0
+    print(dropout)
+    #exit()
     question_encoder = HFBertEncoder.init_encoder(
         cfg.encoder.pretrained_model_cfg,
         projection_dim=cfg.encoder.projection_dim,
@@ -173,9 +175,8 @@ class HFBertEncoder(BertModel):
         cls, cfg_name: str, projection_dim: int = 0, dropout: float = 0.1, pretrained: bool = True, **kwargs
     ) -> BertModel:
         cfg = BertConfig.from_pretrained(cfg_name if cfg_name else "bert-base-uncased")
-        if dropout != 0:
-            cfg.attention_probs_dropout_prob = dropout
-            cfg.hidden_dropout_prob = dropout
+        cfg.attention_probs_dropout_prob = dropout
+        cfg.hidden_dropout_prob = dropout
 
         if pretrained:
             return cls.from_pretrained(cfg_name, config=cfg, project_dim=projection_dim, **kwargs)

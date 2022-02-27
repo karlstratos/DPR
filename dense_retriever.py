@@ -69,6 +69,10 @@ def generate_question_vectors(
                         tensorizer.text_to_tensor(" ".join([query_token, q])) for q in batch_questions
                     ]
             else:
+                #######################################################################################################
+                #print(batch_questions)
+                #exit()
+                #######################################################################################################
                 batch_token_tensors = [tensorizer.text_to_tensor(q) for q in batch_questions]
 
             q_ids_batch = torch.stack(batch_token_tensors, dim=0).cuda()
