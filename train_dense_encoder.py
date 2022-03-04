@@ -246,7 +246,7 @@ class BiEncoderTrainer(object):
         if not cfg.dev_datasets:
             validation_loss = 0
         else:
-            if epoch >= cfg.val_av_rank_start_epoch:
+            if epoch >= cfg.val_av_rank_start_epoch:  # Default 30 in conf/biencoder_train_cfg.yaml
                 validation_loss = self.validate_average_rank()
             else:
                 validation_loss = self.validate_nll()
@@ -351,14 +351,14 @@ class BiEncoderTrainer(object):
             )
         data_iterator = self.dev_iterator
 
-        sub_batch_size = cfg.train.val_av_rank_bsz
+        sub_batch_size = cfg.train.val_av_rank_bsz  # 128
         sim_score_f = BiEncoderNllLoss.get_similarity_function()
         q_represenations = []
         ctx_represenations = []
         positive_idx_per_question = []
 
-        num_hard_negatives = cfg.train.val_av_rank_hard_neg
-        num_other_negatives = cfg.train.val_av_rank_other_neg
+        num_hard_negatives = cfg.train.val_av_rank_hard_neg  # 30
+        num_other_negatives = cfg.train.val_av_rank_other_neg  # 30
 
         log_result_step = cfg.train.log_batch_step
         dataset = 0
@@ -378,10 +378,12 @@ class BiEncoderTrainer(object):
                 num_other_negatives,
                 shuffle=False,
             )
+            biencoder_input = BiEncoderBatch(**move_to_device(biencoder_input._asdict(), cfg.device))
+
             total_ctxs = len(ctx_represenations)
             ctxs_ids = biencoder_input.context_ids
             ctxs_segments = biencoder_input.ctx_segments
-            bsz = ctxs_ids.size(0)
+            bsz = ctxs_ids.size(0)  # 64
 
             # get the token to be used for representation selection
             ds_cfg = self.ds_cfg.dev_datasets[dataset]
@@ -495,11 +497,11 @@ class BiEncoderTrainer(object):
             ds_cfg = self.ds_cfg.train_datasets[dataset]
             special_token = ds_cfg.special_token
             encoder_type = ds_cfg.encoder_type
-            shuffle_positives = ds_cfg.shuffle_positives
+            shuffle_positives = ds_cfg.shuffle_positives  # False
 
             # to be able to resume shuffled ctx- pools
             data_iteration = train_data_iterator.get_iteration()
-            random.seed(seed + epoch + data_iteration)  # TODO: check
+            random.seed(seed + epoch + data_iteration)
 
             #######################################################################################################
             #print_samples_batch(samples_batch)

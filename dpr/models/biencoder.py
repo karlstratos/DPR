@@ -282,7 +282,7 @@ class BiEncoder(nn.Module):
                 random.shuffle(hard_neg_ctxs)
 
             if hard_neg_fallback and len(hard_neg_ctxs) == 0:
-                hard_neg_ctxs = neg_ctxs[0:num_hard_negatives]
+                hard_neg_ctxs = neg_ctxs[0:num_hard_negatives]  # Redundant negs if neg_ctxs get used
 
             neg_ctxs = neg_ctxs[0:num_other_negatives]
             hard_neg_ctxs = hard_neg_ctxs[0:num_hard_negatives]
