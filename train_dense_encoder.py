@@ -76,6 +76,22 @@ def print_biencoder_batch(biencoder_batch):  # Each biencoder_batch: namedtuple
     print('biencoder_batch.hard_negatives', biencoder_batch.hard_negatives)
     print('biencoder_batch.encoder_type', biencoder_batch.encoder_type)
 
+def verbalize_biencoder_batch(biencoder_batch):
+    from transformers import AutoTokenizer
+    tokenizer = AutoTokenizer.from_pretrained('bert-base-uncased')
+    questions = tokenizer.batch_decode(biencoder_batch.question_ids, skip_special_tokens=True)
+    passages = tokenizer.batch_decode(biencoder_batch.context_ids, skip_special_tokens=True)
+    M = int(len(passages) / len(questions))
+    print(len(questions), 'questions, each associated with', M, 'passages\n')
+
+    offset = 0
+    for i, question in enumerate(questions):
+        print(question)
+        for j in range(offset, offset + M):
+            print(passages[j][:100])
+        offset += M
+        print()
+
 def print_forward(input, q_attn_mask, ctx_attn_mask, encoder_type, rep_positions, local_q_vector, local_ctx_vectors, loss, is_correct):
     print_biencoder_batch(input)
     print('q_attn_mask\n', q_attn_mask.long(), '\n', q_attn_mask.size())
@@ -280,7 +296,7 @@ class BiEncoderTrainer(object):
         batches = 0
         dataset = 0
 
-        for i, samples_batch in enumerate(data_iterator.iterate_ds_data()):
+        for i, samples_batch in enumerate(data_iterator.iterate_ds_data()):  # Drops trailing batch
             if isinstance(samples_batch, Tuple):
                 samples_batch, dataset = samples_batch
             logger.info("Eval step: %d ,rnk=%s", i, cfg.local_rank)
@@ -362,7 +378,7 @@ class BiEncoderTrainer(object):
 
         log_result_step = cfg.train.log_batch_step
         dataset = 0
-        for i, samples_batch in enumerate(data_iterator.iterate_ds_data()):
+        for i, samples_batch in enumerate(data_iterator.iterate_ds_data()):  # Drops trailing batch
             # samples += 1
             if len(q_represenations) > cfg.train.val_av_rank_max_qs / distributed_factor:
                 break
@@ -490,7 +506,7 @@ class BiEncoderTrainer(object):
         data_iteration = 0
 
         dataset = 0
-        for i, samples_batch in enumerate(train_data_iterator.iterate_ds_data(epoch=epoch)):
+        for i, samples_batch in enumerate(train_data_iterator.iterate_ds_data(epoch=epoch)):  # Drops trailing batch
             if isinstance(samples_batch, Tuple):
                 samples_batch, dataset = samples_batch
 
@@ -519,6 +535,7 @@ class BiEncoderTrainer(object):
             )
             #######################################################################################################
             #print_biencoder_batch(biencoder_batch)
+            #verbalize_biencoder_batch(biencoder_batch)
             #exit()
             #######################################################################################################
 

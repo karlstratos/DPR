@@ -4,6 +4,10 @@ nq_train2:
   _target_: dpr.data.biencoder_data.JsonQADataset
   file: /common/home/jl2529/repositories/DPR/downloads/data/retriever/nq-train2.json
 
+nq_train3:
+  _target_: dpr.data.biencoder_data.JsonQADataset
+  file: /common/home/jl2529/repositories/DPR/downloads/data/retriever/nq-train3.json
+
 nq_train10:
   _target_: dpr.data.biencoder_data.JsonQADataset
   file: /common/home/jl2529/repositories/DPR/downloads/data/retriever/nq-train10.json

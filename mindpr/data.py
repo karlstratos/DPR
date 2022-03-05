@@ -154,29 +154,14 @@ def get_loader_passages(dataset, collate_fn, args, rank=-1, world_size=-1):
     return loader
 
 
-
-def tensorize_questions(samples, tokenizer, max_length, pad_to_max=False):
+def tensorize_questions(samples, tokenizer, max_length):
     queries = []
 
     for sample in samples:
         queries.append(sample['question'])
 
     # [CLS] query [SEP]
-    if pad_to_max:
-        queries = tokenizer(queries, padding='max_length', truncation=True,
-                            max_length=max_length, return_tensors='pt')
-
-        # https://github.com/facebookresearch/DPR/blob/644d4fe699b3cee16c4324509c1cedc0168d9461/dpr/models/hf_models.py#L265
-        queries['input_ids'][:, -1] = tokenizer.sep_token_id
-        queries['attention_mask'][:, -1] = 1
-
-        # https://github.com/facebookresearch/DPR/blob/644d4fe699b3cee16c4324509c1cedc0168d9461/generate_dense_embeddings.py#L59
-        queries['token_type_ids'].fill_(0)
-
-    else:
-        queries = tokenizer(queries, padding=True, truncation=True,
-                            max_length=max_length, return_tensors='pt')
-
+    queries = text2tensor(tokenizer, queries, max_length=max_length)
     Q = queries['input_ids']  # (B, L)
     Q_mask = queries['attention_mask']
     Q_type = queries['token_type_ids']

@@ -57,8 +57,8 @@ class ShardedDataIterator(object):
     def __init__(
         self,
         data: torch.utils.data.Dataset,
-        shard_id: int = 0,
-        num_shards: int = 1,
+        shard_id: int = 0,  # local rank
+        num_shards: int = 1,  # num processes
         batch_size: int = 1,
         shuffle=True,
         shuffle_seed: int = 0,
@@ -72,7 +72,7 @@ class ShardedDataIterator(object):
         self.shards_num = max(num_shards, 1)
         self.shard_id = max(shard_id, 0)
 
-        samples_per_shard = math.ceil(total_size / self.shards_num)
+        samples_per_shard = math.ceil(total_size / self.shards_num)  # Num samples per GPU
 
         self.shard_start_idx = self.shard_id * samples_per_shard
 
@@ -81,7 +81,17 @@ class ShardedDataIterator(object):
         if strict_batch_size:
             self.max_iterations = math.ceil(samples_per_shard / batch_size)
         else:
+            # This corresponds to dropping the trailing batch.
             self.max_iterations = int(samples_per_shard / batch_size)
+            #print(samples_per_shard)  # 3 examples
+            #print(batch_size)  # 2
+            #print(self.max_iterations)  # 1
+            #exit()
+
+            # BUT this happens for each PROCESS. So, when doing distributed, you will not throw away anything.
+            # Example: num examples 3, batch size 2, 2 processes will take 1 gradient step corresponding to a batch consisting of
+            # [0, 2]   # indep
+            # [2, 1]   # indep
 
         logger.info(
             "samples_per_shard=%d, shard_start_idx=%d, shard_end_idx=%d, max_iterations=%d",
@@ -120,7 +130,7 @@ class ShardedDataIterator(object):
             epoch_rnd = random.Random(self.shuffle_seed + epoch)
             epoch_rnd.shuffle(indices)
         shard_indices = indices[self.shard_start_idx : self.shard_end_idx]
-        return shard_indices
+        return shard_indices  # This is just a shuffled list of item indices
 
     # TODO: merge with iterate_ds_sampled_data
     def iterate_ds_data(self, epoch: int = 0) -> Iterator[List]:
@@ -151,9 +161,11 @@ class ShardedDataIterator(object):
 
     def iterate_ds_sampled_data(self, num_iterations: int, epoch: int = 0) -> Iterator[List]:
         self.iteration = 0
-        shard_indices = self.get_shard_indices(epoch)
+        shard_indices = self.get_shard_indices(epoch)  # Shuffled items (all)
+        #print('*'*80)
+        #print(shard_indices)
         cycle_it = itertools.cycle(shard_indices)
-        for i in range(num_iterations):
+        for i in range(num_iterations):  # Note num_iterations: it'll skip the trailing batch
             items_idxs = [next(cycle_it) for _ in range(self.batch_size)]
             self.iteration += 1
             items = [self.data[idx] for idx in items_idxs]
@@ -215,7 +227,7 @@ class MultiSetDataIterator(object):
             [it.get_iteration() for it in self.iterables],
         )
 
-        data_src_indices = []
+        data_src_indices = []  # will always be [0] if using single dataset
         iterators = []
         for source, src_its in enumerate(self.max_its_pr_ds):
             logger.info(
@@ -234,9 +246,10 @@ class MultiSetDataIterator(object):
             epoch_rnd.shuffle(data_src_indices)
 
         logger.info("rank=%d; data_src_indices len=%d", self.rank, len(data_src_indices))
+
         for i, source_idx in enumerate(data_src_indices):
             it = iterators[source_idx]
-            next_item = next(it, None)
+            next_item = next(it, None)  # List of BiEncoder samples
             if next_item is not None:
                 self.iteration += 1
                 yield (next_item, source_idx)

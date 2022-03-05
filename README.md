@@ -72,4 +72,6 @@ Uncomment print functions in `train_dense_encoder.py`.
 
 ```
 CUDA_VISIBLE_DEVICES= python train_dense_encoder.py train=biencoder_nq train_datasets=[nq_train2] dev_datasets=[nq_train2] train.batch_size=2 train.dev_batch_size=2 train.num_train_epochs=5 output_dir=/data/local/DPR_runs/toy train.shuffle=False encoder.dropout=0 train.learning_rate=1e-4 train.warmup_steps=2 train.log_batch_step=1 train.skip_saving=True
+CUDA_VISIBLE_DEVICES=0 python train_dense_encoder.py train=biencoder_nq train_datasets=[nq_train3] dev_datasets=[nq_train3] train.batch_size=2 train.dev_batch_size=2 train.num_train_epochs=2 output_dir=/data/local/DPR_runs/toy  train.learning_rate=1e-4 train.warmup_steps=0 train.log_batch_step=1 train.skip_saving=True
+CUDA_VISIBLE_DEVICES=0,1 python -m torch.distributed.launch --nproc_per_node=2 train_dense_encoder.py train=biencoder_nq train_datasets=[nq_train3] dev_datasets=[nq_train3] train.batch_size=2 train.dev_batch_size=1 train.num_train_epochs=2 output_dir=/data/local/DPR_runs/toy  train.learning_rate=1e-4 train.warmup_steps=0 train.log_batch_step=1 train.skip_saving=True
 ```
