@@ -76,21 +76,26 @@ def print_biencoder_batch(biencoder_batch):  # Each biencoder_batch: namedtuple
     print('biencoder_batch.hard_negatives', biencoder_batch.hard_negatives)
     print('biencoder_batch.encoder_type', biencoder_batch.encoder_type)
 
-def verbalize_biencoder_batch(biencoder_batch):
+def verbalize_ids(question_ids, context_ids):
     from transformers import AutoTokenizer
     tokenizer = AutoTokenizer.from_pretrained('bert-base-uncased')
-    questions = tokenizer.batch_decode(biencoder_batch.question_ids, skip_special_tokens=True)
-    passages = tokenizer.batch_decode(biencoder_batch.context_ids, skip_special_tokens=True)
-    M = int(len(passages) / len(questions))
-    print(len(questions), 'questions, each associated with', M, 'passages\n')
+    passages = tokenizer.batch_decode(context_ids, skip_special_tokens=True)
+    if question_ids is not None:  # In sub-batching questions not encoded in subsequent parts
+        questions = tokenizer.batch_decode(question_ids, skip_special_tokens=True)
+        M = int(len(passages) / len(questions))
+        print(len(questions), 'questions, each associated with', M, 'passages\n')
+        offset = 0
+        for i, question in enumerate(questions):
+            print(question)
+            for j in range(offset, offset + M):
+                print(passages[j][:100])
+            offset += M
+            print()
+    else:
+        print(len(passages), 'passages\n')
+        for passage in passages:
+            print(passage[:100])
 
-    offset = 0
-    for i, question in enumerate(questions):
-        print(question)
-        for j in range(offset, offset + M):
-            print(passages[j][:100])
-        offset += M
-        print()
 
 def print_forward(input, q_attn_mask, ctx_attn_mask, encoder_type, rep_positions, local_q_vector, local_ctx_vectors, loss, is_correct):
     print_biencoder_batch(input)
@@ -381,6 +386,10 @@ class BiEncoderTrainer(object):
         for i, samples_batch in enumerate(data_iterator.iterate_ds_data()):  # Drops trailing batch
             # samples += 1
             if len(q_represenations) > cfg.train.val_av_rank_max_qs / distributed_factor:
+                # val_av_rank_max_qs: 10000
+                # So, with 8 GPUs this is making sure that you don't consider over 1250 questions per process.
+                # This will not affect NQ since dev # questions is 6515 < 10000, but
+                # it will throw away some questions for larger dev sets.
                 break
 
             if isinstance(samples_batch, Tuple):
@@ -394,6 +403,11 @@ class BiEncoderTrainer(object):
                 num_other_negatives,
                 shuffle=False,
             )
+            #print(i, 'biencoder_input before sub-batching')
+            #verbalize_ids(biencoder_input.question_ids, biencoder_input.context_ids)
+            #exit()
+
+
             biencoder_input = BiEncoderBatch(**move_to_device(biencoder_input._asdict(), cfg.device))
 
             total_ctxs = len(ctx_represenations)
@@ -408,7 +422,6 @@ class BiEncoderTrainer(object):
 
             # split contexts batch into sub batches since it is supposed to be too large to be processed in one batch
             for j, batch_start in enumerate(range(0, bsz, sub_batch_size)):
-
                 q_ids, q_segments = (
                     (biencoder_input.question_ids, biencoder_input.question_segments) if j == 0 else (None, None)
                 )
@@ -423,6 +436,10 @@ class BiEncoderTrainer(object):
 
                 q_attn_mask = self.tensorizer.get_attn_mask(q_ids)
                 ctx_attn_mask = self.tensorizer.get_attn_mask(ctx_ids_batch)
+
+                #print(i, j, 'sub-batch using bsz, sub_batch_size', bsz, sub_batch_size)
+                #verbalize_ids(q_ids, ctx_ids_batch)
+
                 with torch.no_grad():
                     q_dense, ctx_dense = self.biencoder(
                         q_ids,
@@ -451,8 +468,8 @@ class BiEncoderTrainer(object):
                     len(q_represenations),
                 )
 
-        ctx_represenations = torch.cat(ctx_represenations, dim=0)
-        q_represenations = torch.cat(q_represenations, dim=0)
+        ctx_represenations = torch.cat(ctx_represenations, dim=0)  # (N/P, d) per process
+        q_represenations = torch.cat(q_represenations, dim=0)  # (MN/P, d) per process
 
         logger.info("Av.rank validation: total q_vectors size=%s", q_represenations.size())
         logger.info("Av.rank validation: total ctx_vectors size=%s", ctx_represenations.size())
@@ -535,7 +552,7 @@ class BiEncoderTrainer(object):
             )
             #######################################################################################################
             #print_biencoder_batch(biencoder_batch)
-            #verbalize_biencoder_batch(biencoder_batch)
+            #verbalize_ids(biencoder_batch.question_ids, biencoder_batch.context_ids)
             #exit()
             #######################################################################################################
 
