@@ -66,15 +66,22 @@ def print_samples_batch(samples_batch):
         print('sample.hard_negative_passages:', sample.hard_negative_passages)
         print()
 
-def print_biencoder_batch(biencoder_batch):  # Each biencoder_batch: namedtuple
-    torch.set_printoptions(profile="full")
-    print('biencoder_batch.question_ids\n', biencoder_batch.question_ids, '\n', biencoder_batch.question_ids.size())
-    print('biencoder_batch.question_segments\n', biencoder_batch.question_segments, '\n', biencoder_batch.question_segments.size())
-    print('biencoder_batch.context_ids\n', biencoder_batch.context_ids, '\n', biencoder_batch.context_ids.size())
-    print('biencoder_batch.ctx_segments\n', biencoder_batch.ctx_segments, '\n', biencoder_batch.ctx_segments.size())
-    print('biencoder_batch.is_positive', biencoder_batch.is_positive)
-    print('biencoder_batch.hard_negatives', biencoder_batch.hard_negatives)
-    print('biencoder_batch.encoder_type', biencoder_batch.encoder_type)
+def print_biencoder_batch(biencoder_batch, only_size=False):  # Each biencoder_batch: namedtuple
+    if only_size:
+        print('biencoder_batch.question_ids', biencoder_batch.question_ids.size())
+        print('biencoder_batch.context_ids', biencoder_batch.context_ids.size())
+        print('biencoder_batch.is_positive', biencoder_batch.is_positive)
+        print('biencoder_batch.hard_negatives', biencoder_batch.hard_negatives)
+        print('biencoder_batch.encoder_type', biencoder_batch.encoder_type)
+    else:
+        torch.set_printoptions(profile="full")
+        print('biencoder_batch.question_ids\n', biencoder_batch.question_ids, '\n', biencoder_batch.question_ids.size())
+        print('biencoder_batch.question_segments\n', biencoder_batch.question_segments, '\n', biencoder_batch.question_segments.size())
+        print('biencoder_batch.context_ids\n', biencoder_batch.context_ids, '\n', biencoder_batch.context_ids.size())
+        print('biencoder_batch.ctx_segments\n', biencoder_batch.ctx_segments, '\n', biencoder_batch.ctx_segments.size())
+        print('biencoder_batch.is_positive', biencoder_batch.is_positive)
+        print('biencoder_batch.hard_negatives', biencoder_batch.hard_negatives)
+        print('biencoder_batch.encoder_type', biencoder_batch.encoder_type)
 
 def verbalize_ids(question_ids, context_ids):
     from transformers import AutoTokenizer
@@ -286,6 +293,7 @@ class BiEncoderTrainer(object):
         cfg = self.cfg
         self.biencoder.eval()
 
+        # No neg shuffling, 1 (hard) negative: validation is not very meaningful
         if not self.dev_iterator:
             self.dev_iterator = self.get_data_iterator(
                 cfg.train.dev_batch_size, False, shuffle=False, rank=cfg.local_rank
@@ -309,10 +317,14 @@ class BiEncoderTrainer(object):
                 samples_batch,
                 self.tensorizer,
                 True,
-                num_hard_negatives,
-                num_other_negatives,
+                num_hard_negatives,  # 1: we're using *training* config here
+                num_other_negatives,  # 0: we're using *training* config here
                 shuffle=False,
             )
+            #print_biencoder_batch(biencoder_input, only_size=True)
+            #print(num_hard_negatives)
+            #print(num_other_negatives)
+            #exit()
 
             # get the token to be used for representation selection
             ds_cfg = self.ds_cfg.dev_datasets[dataset]
