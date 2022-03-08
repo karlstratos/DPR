@@ -133,7 +133,7 @@ def validate_by_rank_naive(model, loader, rank=-1, world_size=-1,
 
 def validate_by_rank(model, loader, rank=-1, world_size=-1,
                      enable_autocast=False,
-                     device=None, subbatch_size=128, logger=None):
+                     device=None, subbatch_size=128, disable_tqdm=True):
     if device is None:
         device = torch.device('cpu')
 
@@ -143,7 +143,7 @@ def validate_by_rank(model, loader, rank=-1, world_size=-1,
     buffer_size = 0
     model.eval()
     with torch.no_grad():
-        for batch in tqdm(loader, disable=logger is None):
+        for batch in tqdm(loader, disable=disable_tqdm):
             with autocast(enabled=enable_autocast):
                 Q, Q_mask, Q_type, P, P_mask, P_type, labels = batch
 
@@ -167,29 +167,19 @@ def validate_by_rank(model, loader, rank=-1, world_size=-1,
     Y_all = torch.cat(Y_all, 0)  # (MN/P, d)
     labels_all = torch.cat(labels_all, 0)  # (N/P,): each element in [MN/P]
     scores = X_all @ Y_all.t()  # (N/P, MN/P)
-    if logger is not None:
-        logger.log(f'Val in rank {rank}: scores {list(scores.size())}',
-                   force=True)
     _, indices = torch.sort(scores, dim=1, descending=True)  # (N/P, MN/P)
     ranks = (indices == labels_all.view(-1, 1)).nonzero()[:, 1]
     sum_ranks = ranks.sum().to(device)
     num_queries = torch.LongTensor([indices.size(0)]).to(device)
     num_cands = torch.LongTensor([indices.size(1)]).to(device)
-    if logger is not None:
-        logger.log(f'Val in rank {rank}: sum_ranks {sum_ranks.item()}, '
-                   f'num_queries {num_queries.item()}, num_cands '
-                   f'{num_cands.item()}', force=True)
     if world_size != -1:
         dist.all_reduce(sum_ranks, op=dist.ReduceOp.SUM)
         dist.all_reduce(num_queries, op=dist.ReduceOp.SUM)
         dist.all_reduce(num_cands, op=dist.ReduceOp.SUM)
-    if logger is not None:
-        logger.log(f'Val after all_reduce: sum_ranks {sum_ranks.item()}, '
-                   f'num_queries {num_queries.item()}, '
-                   f'num_cands {num_cands.item()}')
-    rank_average = int((sum_ranks / num_queries).item())
-    num_cands_avg = int(num_cands.item() / world_size) \
-                    if world_size != -1 else int(num_cands.item())
+
+    rank_average = (sum_ranks / num_queries).item()
+    num_cands_avg = num_cands.item() / world_size \
+                    if world_size != -1 else num_cands.item()
 
     return rank_average, num_cands_avg
 

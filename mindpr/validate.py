@@ -54,9 +54,10 @@ def main(args):
     start_time = datetime.now()
     avgrank, num_cands_avg = validate_by_rank(model, loader_val, rank,
                                               world_size, args.autocast, device,
-                                              args.subbatch_size, logger)
-    logger.log(f'\nDone | On average, rank {avgrank:5d} out of '
-               f'{num_cands_avg:5d} cands per process | '
+                                              args.subbatch_size,
+                                              disable_tqdm=False)
+    logger.log(f'\nDone | On average, rank {avgrank:4.3f} out of '
+               f'{num_cands_avg:4.3f} cands per process | '
                f'{strtime(start_time)}')
 
 

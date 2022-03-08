@@ -137,8 +137,7 @@ def main(args):
             model.eval()
             avgrank, num_cands = validate_by_rank(model, loader_val, rank,
                                                   world_size, args.autocast,
-                                                  device, args.subbatch_size,
-                                                  logger)
+                                                  device, args.subbatch_size)
             loss_val = avgrank
             if loss_val < loss_val_best:
                 sd = model.module.state_dict() if is_distributed else \
@@ -164,21 +163,21 @@ if __name__ == '__main__':
     parser.add_argument('model', type=str)
     parser.add_argument('data_train', type=str)
     parser.add_argument('data_val', type=str)
-    parser.add_argument('--batch_size', type=int, default=10)
-    parser.add_argument('--batch_size_val', type=int, default=10)
+    parser.add_argument('--batch_size', type=int, default=16)
+    parser.add_argument('--batch_size_val', type=int, default=512)
     parser.add_argument('--max_length', type=int, default=256)
-    parser.add_argument('--lr', type=float, default=1)
+    parser.add_argument('--lr', type=float, default=2e-5)
     parser.add_argument('--dropout', type=float, default=0.1)
-    parser.add_argument('--num_warmup_steps', type=int, default=40)
+    parser.add_argument('--num_warmup_steps', type=int, default=0)
     parser.add_argument('--clip', type=float, default=2.)
     parser.add_argument('--num_workers', type=int, default=0)
     parser.add_argument('--num_hard_negatives_val', type=int, default=30)
     parser.add_argument('--num_other_negatives_val', type=int, default=30)
-    parser.add_argument('--subbatch_size', type=int, default=128)
+    parser.add_argument('--subbatch_size', type=int, default=1024)
     parser.add_argument('--start_epoch_val', type=int, default=30)
     parser.add_argument('--no_shuffle', action='store_true')
     parser.add_argument('--autocast', action='store_true')
-    parser.add_argument('--epochs', type=int, default=2)
+    parser.add_argument('--epochs', type=int, default=40)
     parser.add_argument('--seed', type=int, default=42)
     parser.add_argument('--gpus', default='', type=str)
     args = parser.parse_args()
