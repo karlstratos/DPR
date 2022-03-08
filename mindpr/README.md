@@ -1,6 +1,8 @@
 ## NQ
 ```
 torchrun --standalone --nnodes=1 --nproc_per_node=8 mindpr/train.py /data/local/DPR_runs/mindpr_runs/nq/model downloads/data/retriever/nq-train.json downloads/data/retriever/nq-dev.json --num_warmup_steps 1237 --num_workers 2 --gpus 0,1,2,3,4,5,6,7   # 2h6m
+torchrun --standalone --nnodes=1 --nproc_per_node=8 mindpr/encode_passages_sharded.py /data/local/DPR_runs/mindpr_runs/nq/model '/common/home/jl2529/repositories/DPR/downloads/data/wikipedia_split/psgs_w100_shard*.tsv' /data/local/DPR_runs/mindpr_runs/nq --batch_size 2048 --num_workers 2 --gpus 0,1,2,3,4,5,6,7
+python mindpr/search.py /data/local/DPR_runs/mindpr_runs/nq/model downloads/data/retriever/qas/nq-test.csv '/data/local/DPR_runs/mindpr_runs/nq/psgs_w100_shard*.pickle' /data/local/DPR_runs/mindpr_runs/nq/out.json downloads/data/wikipedia_split/psgs_w100.tsv --gpu 0
 ```
 
 ## Running DPR repo model
