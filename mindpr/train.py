@@ -40,7 +40,9 @@ def main(args):
     dataset_val = DPRDataset(args.data_val)
     tokenizer = AutoTokenizer.from_pretrained('bert-base-uncased')
     loader_train, loader_val = get_loaders(dataset_train, dataset_val,
-                                           tokenizer, args, rank, world_size)
+                                           tokenizer, args, rank, world_size,
+                                           args.num_hard_negatives_val,
+                                           args.num_other_negatives_val)
     num_training_steps = len(loader_train) * args.epochs
     effective_batch_size = args.batch_size
     if world_size > 0:
@@ -129,21 +131,26 @@ def main(args):
         acc = num_correct_sum / len(dataset_train) * 100.
         current_lr = optimizer.param_groups[0]['lr']
 
-        model.eval()
-        loss_val = validate_by_rank(model, loader_val, rank, world_size,
-                                    args.autocast, device)
+        loss_val = -1
         is_best_string = ''
-        if loss_val < loss_val_best:
-            sd = model.module.state_dict() if is_distributed else \
-                 model.state_dict()
-            sd_best = deepcopy(sd)
-            is_best_string = ' <-------------'
-            loss_val_best = loss_val   # Sketchy
+        if epoch >= args.start_epoch_val:
+            model.eval()
+            avgrank, num_cands = validate_by_rank(model, loader_val, rank,
+                                                  world_size, args.autocast,
+                                                  device, args.subbatch_size,
+                                                  logger)
+            loss_val = avgrank
+            if loss_val < loss_val_best:
+                sd = model.module.state_dict() if is_distributed else \
+                     model.state_dict()
+                sd_best = deepcopy(sd)
+                is_best_string = ' <-------------'
+                loss_val_best = loss_val
 
         logger.log(f'End of epoch {epoch:3d}: {num_steps_per_epoch} steps '
                    f'({num_steps_skipped} skipped so far), per-batch loss '
                    f'{loss_train:10.4f}, acc {acc:10.2f}, lr '
-                   f' {current_lr:.2E}, loss val {loss_val:10.4f} '
+                   f' {current_lr:.2E}, loss val {loss_val:10d} '
                    f'{is_best_string}')
 
     if is_main_process and sd_best is not None:
@@ -165,6 +172,10 @@ if __name__ == '__main__':
     parser.add_argument('--num_warmup_steps', type=int, default=40)
     parser.add_argument('--clip', type=float, default=2.)
     parser.add_argument('--num_workers', type=int, default=0)
+    parser.add_argument('--num_hard_negatives_val', type=int, default=30)
+    parser.add_argument('--num_other_negatives_val', type=int, default=30)
+    parser.add_argument('--subbatch_size', type=int, default=128)
+    parser.add_argument('--start_epoch_val', type=int, default=30)
     parser.add_argument('--no_shuffle', action='store_true')
     parser.add_argument('--autocast', action='store_true')
     parser.add_argument('--epochs', type=int, default=2)

@@ -101,14 +101,14 @@ def tensorize(samples, tokenizer, max_length, shuffle=False,
 
 
 def get_loaders(dataset_train, dataset_val, tokenizer, args, rank=-1,
-                world_size=-1):
+                world_size=-1, num_hard_negatives_val=30,
+                num_other_negatives_val=30):
     collate_fn = lambda samples: tensorize(samples, tokenizer, args.max_length,
                                            shuffle=not args.no_shuffle)
-    collate_fn_val = lambda samples: tensorize(samples, tokenizer,
-                                               args.max_length,
-                                               shuffle=False,  # No shuffle
-                                               num_hard_negatives=30,
-                                               num_other_negatives=30)
+    collate_fn_val = lambda samples: tensorize(
+        samples, tokenizer, args.max_length, shuffle=False,  # No shuffle
+        num_hard_negatives=num_hard_negatives_val,
+        num_other_negatives=num_other_negatives_val)
 
     if world_size != -1:
         def make_distributed_loader(dataset, batch_size, shuffle, collate_fn):
