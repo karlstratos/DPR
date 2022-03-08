@@ -52,14 +52,11 @@ def main(args):
     model.eval()
     logger.log('validate_by_rank')
     start_time = datetime.now()
-    avgrank, num_cands = validate_by_rank(model, loader_val, rank, world_size,
-                                          args.autocast, device,
-                                          args.subbatch_size, verbose=True)
-    num_cands_per_process = int(num_cands / world_size) \
-                            if world_size != -1 else num_cands
-    logger.log(f'Num cands (total): {num_cands}')
-    logger.log(f'\nDone | On average, rank {avgrank:.2f} out of '
-               f'{num_cands_per_process} cands per process | '
+    avgrank, num_cands_avg = validate_by_rank(model, loader_val, rank,
+                                              world_size, args.autocast, device,
+                                              args.subbatch_size, logger)
+    logger.log(f'\nDone | On average, rank {avgrank:5d} out of '
+               f'{num_cands_avg:5d} cands per process | '
                f'{strtime(start_time)}')
 
 
