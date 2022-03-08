@@ -8,6 +8,7 @@ from torch.optim.lr_scheduler import LambdaLR
 from torch.serialization import default_restore_location
 from transformers import (BertTokenizer, AdamW, get_constant_schedule,
                           BertModel, get_linear_schedule_with_warmup)
+from tqdm import tqdm
 
 
 class BertEncoder(torch.nn.Module):
@@ -100,14 +101,14 @@ def get_loss(model, batch, rank=-1, world_size=-1, enable_autocast=False,
     return loss, num_correct
 
 
-def validate_by_rank(model, loader, rank=-1, world_size=-1,
-                     enable_autocast=False, device=None):
+def validate_by_rank_naive(model, loader, rank=-1, world_size=-1,
+                           enable_autocast=False, device=None):
     X_all = []
     Y_all = []
     labels_all = []
     buffer_size = None
     with torch.no_grad():
-        for batch in loader:  # TODO: Remove duplicates?
+        for batch in loader:
             with autocast(enabled=enable_autocast):
                 X, Y, labels = run_forward_train(model, batch, rank, world_size,
                                                  device)
@@ -128,6 +129,64 @@ def validate_by_rank(model, loader, rank=-1, world_size=-1,
     rank_average = ranks.sum().item() / len(indices)
 
     return rank_average
+
+
+def validate_by_rank(model, loader, rank=-1, world_size=-1,
+                     enable_autocast=False,
+                     device=None, subbatch_size=128, verbose=True):
+    if device is None:
+        device = torch.device('cpu')
+
+    X_all = []
+    Y_all = []
+    labels_all = []
+    buffer_size = 0
+    model.eval()
+    with torch.no_grad():
+        for batch in tqdm(loader, disable=not verbose):
+            with autocast(enabled=enable_autocast):
+                Q, Q_mask, Q_type, P, P_mask, P_type, labels = batch
+
+                X, _ = model(Q=Q.to(device), Q_mask=Q_mask.to(device),
+                             Q_type=Q_type.to(device))
+                X_all.append(X.cpu())
+
+                for i in range(0, P.size(0), subbatch_size):
+                    subP = P[i: i + subbatch_size, :]
+                    subP_mask = P_mask[i: i + subbatch_size, :]
+                    subP_type = P_type[i: i + subbatch_size, :]
+                    _, subY = model(P=subP.to(device),
+                                    P_mask=subP_mask.to(device),
+                                    P_type=subP_type.to(device))
+                    Y_all.append(subY.cpu())
+
+                labels_all.append((labels + buffer_size).cpu())
+                buffer_size += P.size(0)
+
+    X_all = torch.cat(X_all, 0)  # (N/P, d)
+    Y_all = torch.cat(Y_all, 0)  # (MN/P, d)
+    labels_all = torch.cat(labels_all, 0)  # (N/P,): each element in [MN/P]
+    scores = X_all @ Y_all.t()  # (N/P, MN/P)
+    if verbose:
+        print(f'Val in rank {rank}: scores {list(scores.size())}')
+    _, indices = torch.sort(scores, dim=1, descending=True)  # (N/P, MN/P)
+    ranks = (indices == labels_all.view(-1, 1)).nonzero()[:, 1]
+    sum_ranks = ranks.sum().to(device)
+    num_queries = torch.LongTensor([indices.size(0)]).to(device)
+    num_cands = torch.LongTensor([indices.size(1)]).to(device)
+    if verbose:
+        print(f'Val in rank {rank}: sum_ranks {sum_ranks.item()}, '
+              f'num_queries {num_queries.item()}, num_cands {num_cands.item()}')
+    if world_size != -1:
+        dist.all_reduce(sum_ranks, op=dist.ReduceOp.SUM)
+        dist.all_reduce(num_queries, op=dist.ReduceOp.SUM)
+        dist.all_reduce(num_cands, op=dist.ReduceOp.SUM)
+    if verbose and rank in [-1, 0]:
+        print(f'Val after all_reduce: sum_ranks {sum_ranks.item()}, '
+              f'num_queries {num_queries.item()}, num_cands {num_cands.item()}')
+    rank_average = (sum_ranks / num_queries).item()
+
+    return rank_average, num_cands.item()
 
 
 def run_forward_encode(model, batch, world_size=-1, device=None):

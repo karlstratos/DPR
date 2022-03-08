@@ -167,7 +167,6 @@ if __name__ == '__main__':
     parser.add_argument('--num_workers', type=int, default=0)
     parser.add_argument('--no_shuffle', action='store_true')
     parser.add_argument('--autocast', action='store_true')
-    parser.add_argument('--pad_to_max', action='store_true')
     parser.add_argument('--epochs', type=int, default=2)
     parser.add_argument('--seed', type=int, default=42)
     parser.add_argument('--gpus', default='', type=str)

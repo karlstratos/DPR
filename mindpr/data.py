@@ -106,7 +106,7 @@ def get_loaders(dataset_train, dataset_val, tokenizer, args, rank=-1,
                                            shuffle=not args.no_shuffle)
     collate_fn_val = lambda samples: tensorize(samples, tokenizer,
                                                args.max_length,
-                                               shuffle=not args.no_shuffle,
+                                               shuffle=False,  # No shuffle
                                                num_hard_negatives=30,
                                                num_other_negatives=30)
 
@@ -138,6 +138,39 @@ def get_loaders(dataset_train, dataset_val, tokenizer, args, rank=-1,
                                          False, collate_fn_val)
 
     return loader_train, loader_val
+
+
+def get_loader_val(dataset_val, tokenizer, args, rank=-1, world_size=-1,
+                   num_hard_negatives=30, num_other_negatives=30):
+    collate_fn_val = lambda samples: tensorize(
+        samples, tokenizer, args.max_length, shuffle=False,  # No shuffle
+        num_hard_negatives=num_hard_negatives,
+        num_other_negatives=num_other_negatives)
+
+    if world_size != -1:
+        def make_distributed_loader(dataset, batch_size, collate_fn):
+            sampler = DistributedSampler(dataset, num_replicas=world_size,
+                                         rank=rank, shuffle=False,
+                                         drop_last=False)
+            loader = DataLoader(dataset, batch_size=batch_size,
+                                shuffle=False, num_workers=args.num_workers,
+                                collate_fn=collate_fn, sampler=sampler)
+            return loader
+
+        loader_val = make_distributed_loader(dataset_val, args.batch_size_val,
+                                             collate_fn_val)
+    else:
+
+        def make_regular_loader(dataset, batch_size, collate_fn):
+            loader = DataLoader(dataset, batch_size=batch_size,
+                                shuffle=False, num_workers=args.num_workers,
+                                collate_fn=collate_fn)
+            return loader
+
+        loader_val = make_regular_loader(dataset_val, args.batch_size_val,
+                                         collate_fn_val)
+
+    return loader_val
 
 
 def get_loader_passages(dataset, collate_fn, args, rank=-1, world_size=-1):

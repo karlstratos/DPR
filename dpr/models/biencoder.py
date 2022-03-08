@@ -241,7 +241,7 @@ class BiEncoder(nn.Module):
         insert_title: bool,
         num_hard_negatives: int = 0,
         num_other_negatives: int = 0,
-        shuffle: bool = True,
+        shuffle: bool = True,  # In validate_average_rank, this is set to False
         shuffle_positives: bool = False,
         hard_neg_fallback: bool = True,
         query_token: str = None,
