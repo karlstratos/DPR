@@ -53,8 +53,6 @@ from dpr.utils.model_utils import (
 logger = logging.getLogger()
 setup_logger(logger)
 
-
-
 # My helper functions
 #####################################################################################################
 def print_samples_batch(samples_batch):
@@ -609,14 +607,14 @@ class BiEncoderTrainer(object):
 
             if i % log_result_step == 0:
                 lr = self.optimizer.param_groups[0]["lr"]
-                logger.info(
+                logger.critical(
                     "Epoch: %d: Step: %d/%d, loss=%f, lr=%f <-----------------------------------",
                     epoch,
                     data_iteration,
                     epoch_batches,
                     loss.item(),
                     lr,
-                )
+                )  # TODO: Include val monitoring
 
             if (i + 1) % rolling_loss_step == 0:
                 logger.info("Train batch %d", data_iteration)
@@ -854,7 +852,6 @@ def main(cfg: DictConfig):
         logger.info("%s", OmegaConf.to_yaml(cfg))
 
     trainer = BiEncoderTrainer(cfg)
-
     if cfg.train_datasets and len(cfg.train_datasets) > 0:
         trainer.run_train()
     elif cfg.model_file and cfg.dev_datasets:

@@ -67,6 +67,9 @@ def setup_cfg_gpu(cfg):
     """
     Setup params for CUDA, GPU & distributed training
     """
+    logger.setLevel(logging.CRITICAL)  # Only log critical stuff
+    logger.handlers.clear()
+
     logger.info("args.local_rank %s", cfg.local_rank)
     ws = os.environ.get("WORLD_SIZE")
     cfg.distributed_world_size = int(ws) if ws else 1
@@ -95,10 +98,12 @@ def setup_cfg_gpu(cfg):
 
 
 def setup_logger(logger):
-    logger.setLevel(logging.INFO)
+    #logger.setLevel(logging.INFO)
+    logger.setLevel(logging.CRITICAL)  # Only log critical stuff
     if logger.hasHandlers():
         logger.handlers.clear()
-    log_formatter = logging.Formatter("[%(thread)s] %(asctime)s [%(levelname)s] %(name)s: %(message)s")
-    console = logging.StreamHandler()
-    console.setFormatter(log_formatter)
-    logger.addHandler(console)
+
+    #log_formatter = logging.Formatter("[%(thread)s] %(asctime)s [%(levelname)s] %(name)s: %(message)s")
+    #console = logging.StreamHandler()
+    #console.setFormatter(log_formatter)
+    #logger.addHandler(console)

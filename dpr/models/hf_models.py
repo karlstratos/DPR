@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 
 def get_bert_biencoder_components(cfg, inference_only: bool = False, **kwargs):
     dropout = cfg.encoder.dropout if hasattr(cfg.encoder, "dropout") else 0.0
-    print(dropout)
+    #print(dropout)
     #exit()
     question_encoder = HFBertEncoder.init_encoder(
         cfg.encoder.pretrained_model_cfg,

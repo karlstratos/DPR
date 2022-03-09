@@ -1,4 +1,3 @@
-# @package _group_
 
 # model type. One of [hf_bert, pytext_bert, fairseq_roberta]
 encoder_model_type: hf_bert

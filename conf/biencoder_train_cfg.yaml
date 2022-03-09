@@ -1,6 +1,7 @@
 
 # configuration groups
 defaults:
+  - _self_
   - encoder: hf_bert
   - train: biencoder_default
   - datasets: encoder_train_default

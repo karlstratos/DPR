@@ -3,7 +3,6 @@ import torch
 import torch.distributed as dist
 import torch.nn.functional as F
 
-from torch.cuda.amp import autocast
 from torch.optim.lr_scheduler import LambdaLR
 from torch.serialization import default_restore_location
 from transformers import (BertTokenizer, AdamW, get_constant_schedule,
@@ -87,52 +86,19 @@ def run_forward_train(model, batch, rank=-1, world_size=-1, device=None):
     return X, Y, labels
 
 
-def get_loss(model, batch, rank=-1, world_size=-1, enable_autocast=False,
-             device=None):
-    with autocast(enabled=enable_autocast):
-        X, Y, labels = run_forward_train(model, batch, rank, world_size, device)
-        scores = X @ Y.t()  # (B, 2B)
+def get_loss(model, batch, rank=-1, world_size=-1, device=None):
+    X, Y, labels = run_forward_train(model, batch, rank, world_size, device)
+    scores = X @ Y.t()  # (B, 2B)
 
-        # No need to all reduce loss/num_correct: each process already
-        # has all examples across all processes.
-        loss = F.cross_entropy(scores, labels, reduction='mean')
-        num_correct = (torch.max(scores, 1)[1] == labels).sum()
+    # No need to all reduce loss/num_correct: each process already
+    # has all examples across all processes.
+    loss = F.cross_entropy(scores, labels, reduction='mean')
+    num_correct = (torch.max(scores, 1)[1] == labels).sum()
 
     return loss, num_correct
 
 
-def validate_by_rank_naive(model, loader, rank=-1, world_size=-1,
-                           enable_autocast=False, device=None):
-    X_all = []
-    Y_all = []
-    labels_all = []
-    buffer_size = None
-    with torch.no_grad():
-        for batch in loader:
-            with autocast(enabled=enable_autocast):
-                X, Y, labels = run_forward_train(model, batch, rank, world_size,
-                                                 device)
-                X_all.append(X.cpu())
-                Y_all.append(Y.cpu())
-
-                if buffer_size is not None:
-                    labels += buffer_size
-                labels_all.append(labels.cpu())
-                buffer_size = Y.size(0)
-    X_all = torch.cat(X_all, 0)  # (N, d)
-    Y_all = torch.cat(Y_all, 0)  # (MN, d)
-    labels_all = torch.cat(labels_all, 0)  # (N,)
-    scores = X_all @ Y_all.t()  # (N, MN)
-    _, indices = torch.sort(scores, dim=1, descending=True)
-
-    ranks = (indices == labels_all.view(-1, 1)).nonzero()[:, 1]
-    rank_average = ranks.sum().item() / len(indices)
-
-    return rank_average
-
-
 def validate_by_rank(model, loader, rank=-1, world_size=-1,
-                     enable_autocast=False,
                      device=None, subbatch_size=128, disable_tqdm=True):
     if device is None:
         device = torch.device('cpu')
@@ -144,24 +110,23 @@ def validate_by_rank(model, loader, rank=-1, world_size=-1,
     model.eval()
     with torch.no_grad():
         for batch in tqdm(loader, disable=disable_tqdm):
-            with autocast(enabled=enable_autocast):
-                Q, Q_mask, Q_type, P, P_mask, P_type, labels = batch
+            Q, Q_mask, Q_type, P, P_mask, P_type, labels = batch
 
-                X, _ = model(Q=Q.to(device), Q_mask=Q_mask.to(device),
-                             Q_type=Q_type.to(device))
-                X_all.append(X.cpu())
+            X, _ = model(Q=Q.to(device), Q_mask=Q_mask.to(device),
+                         Q_type=Q_type.to(device))
+            X_all.append(X.cpu())
 
-                for i in range(0, P.size(0), subbatch_size):
-                    subP = P[i: i + subbatch_size, :]
-                    subP_mask = P_mask[i: i + subbatch_size, :]
-                    subP_type = P_type[i: i + subbatch_size, :]
-                    _, subY = model(P=subP.to(device),
-                                    P_mask=subP_mask.to(device),
-                                    P_type=subP_type.to(device))
-                    Y_all.append(subY.cpu())
+            for i in range(0, P.size(0), subbatch_size):
+                subP = P[i: i + subbatch_size, :]
+                subP_mask = P_mask[i: i + subbatch_size, :]
+                subP_type = P_type[i: i + subbatch_size, :]
+                _, subY = model(P=subP.to(device),
+                                P_mask=subP_mask.to(device),
+                                P_type=subP_type.to(device))
+                Y_all.append(subY.cpu())
 
-                labels_all.append((labels + buffer_size).cpu())
-                buffer_size += P.size(0)
+            labels_all.append((labels + buffer_size).cpu())
+            buffer_size += P.size(0)
 
     X_all = torch.cat(X_all, 0)  # (N/P, d)
     Y_all = torch.cat(Y_all, 0)  # (MN/P, d)

@@ -14,7 +14,6 @@ def main(args):
     from file_handling import mkdir_optional
     from model import load_model, run_forward_encode
     from pathlib import Path
-    from torch.cuda.amp import autocast
     from torch.distributed import init_process_group
     from transformers import AutoTokenizer, set_seed
     from tqdm import tqdm
@@ -78,8 +77,7 @@ def main(args):
         bucket = []
         with torch.no_grad():
             for batch_num, batch in enumerate(tqdm(loader)):
-                with autocast(enabled=args.autocast):
-                    Y, I = run_forward_encode(model, batch, world_size, device)
+                Y, I = run_forward_encode(model, batch, world_size, device)
                 pid_embedding_pairs = list(zip(I.tolist(), Y.cpu().numpy()))
 
                 # In DDP, last non-full batch is padded with earliest examples
@@ -122,7 +120,6 @@ if __name__ == '__main__':
     parser.add_argument('--batch_size', type=int, default=3)
     parser.add_argument('--num_workers', type=int, default=0)
     parser.add_argument('--gpus', default='', type=str)
-    parser.add_argument('--autocast', action='store_true')
 
     args = parser.parse_args()
 

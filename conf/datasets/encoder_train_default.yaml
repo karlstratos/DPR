@@ -1,4 +1,3 @@
-# @package _group_
 
 nq_train2:
   _target_: dpr.data.biencoder_data.JsonQADataset

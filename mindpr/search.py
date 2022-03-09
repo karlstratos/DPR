@@ -15,7 +15,6 @@ def main(args):
     from file_handling import write_json
     from model import load_model
     from pathlib import Path
-    from torch.cuda.amp import autocast
     from torch.utils.data import DataLoader
     from transformers import AutoTokenizer, set_seed
     from tqdm import tqdm
@@ -46,8 +45,7 @@ def main(args):
     with torch.no_grad():
         for batch in tqdm(loader):
             Q, Q_mask, Q_type = [tensor.to(device) for tensor in batch]
-            with autocast(enabled=args.autocast):
-                X, _ = model(Q=Q, Q_mask=Q_mask, Q_type=Q_type)
+            X, _ = model(Q=Q, Q_mask=Q_mask, Q_type=Q_type)
             question_matrix.append(X.cpu().numpy())
     question_matrix = np.concatenate(question_matrix, axis=0)
     print(f'Question matrix: {str(question_matrix.shape)}')
@@ -140,7 +138,6 @@ if __name__ == '__main__':
     parser.add_argument('--num_workers', type=int, default=0)
     parser.add_argument('--seed', type=int, default=42)
     parser.add_argument('--gpu', default='', type=str)
-    parser.add_argument('--autocast', action='store_true')
 
     args = parser.parse_args()
 
