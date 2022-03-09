@@ -17,7 +17,6 @@ k=1     k=5     k=20    k=100   filename        num_queries
 46.0%   68.2%   79.1%   86.3%   nq-test.csv     3610
 ```
 
-
 ## Debugging validation (average rank)
 ```
 python mindpr/validate.py --batch_size_val 10 --num_hard_negatives 3 --num_other_negatives 4 --subbatch_size 7 --gpus 0 --data_val downloads/data/retriever/nq-train10.json
