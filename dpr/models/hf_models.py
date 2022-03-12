@@ -190,6 +190,9 @@ class HFBertEncoder(BertModel):
         attention_mask: T,
         representation_token_pos=0,
     ) -> Tuple[T, ...]:
+        #from transformers import set_seed
+        #set_seed(42)  # This controls dropout
+
         if self.config.output_hidden_states:
             sequence_output, pooled_output, hidden_states = super().forward(
                 input_ids=input_ids,

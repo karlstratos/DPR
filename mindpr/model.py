@@ -19,6 +19,8 @@ class BertEncoder(torch.nn.Module):
             hidden_dropout_prob=dropout) #add_pooling_layer=False)
 
     def forward(self, input_ids, attention_mask=None, token_type_ids=None):
+        #from transformers import set_seed
+        #set_seed(42)  # This controls dropout
         output = self.encoder(input_ids=input_ids,
                               attention_mask=attention_mask,
                               token_type_ids=token_type_ids)
@@ -38,8 +40,6 @@ class DPRModel(torch.nn.Module):
     def forward(self, Q=None, Q_mask=None, Q_type=None, P=None, P_mask=None,
                 P_type=None):
         X = self.query_encoder(Q, Q_mask, Q_type) if Q is not None else None
-
-
         Y = self.passage_encoder(P, P_mask, P_type) if P is not None else None
         return X, Y
 

@@ -34,5 +34,5 @@ python mindpr/train.py /tmp/model downloads/data/retriever/nq-train10.json downl
 ```
 vs
 ```
-CUDA_VISIBLE_DEVICES=0 python train_dense_encoder.py train=biencoder_nq train_datasets=[nq_train10] dev_datasets=[nq_train10] train.batch_size=2 train.dev_batch_size=10 train.num_train_epochs=5 output_dir=/data/local/DPR_runs/toy  train.learning_rate=1e-4 train.warmup_steps=1 train.log_batch_step=1 train.skip_saving=True val_av_rank_start_epoch=0
+CUDA_VISIBLE_DEVICES=0 python train_dense_encoder.py train=biencoder_nq train_datasets=[nq_train10] dev_datasets=[nq_train10] train.batch_size=10 train.dev_batch_size=10 train.num_train_epochs=5 output_dir=/data/local/DPR_runs/toy  train.learning_rate=1e-4 train.warmup_steps=1 train.log_batch_step=1 train.skip_saving=True val_av_rank_start_epoch=0
 ```

@@ -3,6 +3,7 @@ import os
 
 
 def main(args):
+    import random
     import torch
     import transformers
 
@@ -13,6 +14,11 @@ def main(args):
     from torch.distributed import init_process_group
     from transformers import AutoTokenizer, set_seed
     from util import Logger, check_distributed, strtime
+
+    # Debuggging with the DPR code
+    from biencoder import BiEncoder
+    from data_utils import my_get_iterator
+    from hf_models import BertTensorizer
 
     set_seed(args.seed)
     rank, local_rank, world_size = check_distributed()
@@ -33,14 +39,20 @@ def main(args):
 
     logger.log(f'Using device: {str(device)}', force=True)
 
+
+    iterator_train = my_get_iterator(args.data_train,
+                                     args.batch_size,
+                                     True,  # is_train_set
+                                     shuffle=not args.no_shuffle,
+                                     shuffle_seed=args.seed,
+                                     rank=local_rank,
+                                     world_size=world_size)
+
     dataset_train = DPRDataset(args.data_train)
     dataset_val = DPRDataset(args.data_val)
     tokenizer = AutoTokenizer.from_pretrained('bert-base-uncased')
-    loader_train, loader_val = get_loaders(dataset_train, dataset_val,
-                                           tokenizer, args, rank, world_size,
-                                           args.num_hard_negatives_val,
-                                           args.num_other_negatives_val)
-    num_training_steps = len(loader_train) * args.epochs
+    loader_train, loader_val = get_loaders(dataset_train, dataset_val, tokenizer, args, rank, world_size, args.num_hard_negatives_val, args.num_other_negatives_val)
+    num_training_steps = iterator_train.max_iterations * args.epochs
     effective_batch_size = args.batch_size
     if world_size > 0:
         effective_batch_size *= world_size
@@ -59,9 +71,9 @@ def main(args):
     else:
         logger.log('Single-process single-device, no model wrapping')
 
+    tensorizer = BertTensorizer(tokenizer, args.max_length)
+
     # Training
-    num_batches_processed = 0
-    num_steps_skipped = 0
     loss_val_best = float('inf')
     sd_best = None
     start_time = datetime.now()
@@ -70,11 +82,32 @@ def main(args):
         loss_sum = 0.
         num_correct_sum = 0
 
-        for batch_num, batch in enumerate(loader_train):
+        for batch_num, samples_batch in enumerate(iterator_train.iterate_ds_data(epoch=epoch)):  # Drops trailing batch
+            if True:
+                samples_batch, dataset = samples_batch
+            data_iteration = iterator_train.get_iteration()
+            random.seed(args.seed + epoch + data_iteration)
+            biencoder_batch = BiEncoder.create_biencoder_input2(
+                samples_batch,
+                tensorizer,
+                True,
+                1,  # train.hard_negatives
+                0,  # train.other_negatives
+                shuffle=not args.no_shuffle,
+                shuffle_positives=False,
+            )
+            Q = biencoder_batch.question_ids
+            Q_mask = tensorizer.get_attn_mask(Q)
+            Q_type = biencoder_batch.question_segments
+            P = biencoder_batch.context_ids
+            P_mask = tensorizer.get_attn_mask(P)
+            P_type = biencoder_batch.ctx_segments
+            labels = torch.LongTensor(biencoder_batch.is_positive)
+            batch = [Q, Q_mask, Q_type, P, P_mask, P_type, labels]
+
             loss, num_correct = get_loss(model, batch, rank, world_size, device)
             loss_sum += loss.item()
             num_correct_sum += num_correct.item()
-            num_batches_processed += 1
 
             loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), args.clip)
@@ -84,9 +117,13 @@ def main(args):
 
             if batch_num % args.log_result_step == 0:
                 lr = optimizer.param_groups[0]['lr']
-                logger.log(f'Epoch {epoch}, step {batch_num + 1}/{len(loader_train)}, loss {loss.item():4.3f}, lr {lr:f}')
+                model.eval()
+                myval, _ = validate_by_rank(model, loader_val, rank,
+                                            world_size, device,
+                                            args.subbatch_size)
+                model.train()
+                logger.log(f'Epoch {epoch}, step {batch_num + 1}/{len(loader_train)}, loss {loss.item():4.6f}, lr {lr:f}, val {myval:4.3f}')
 
-        loss_train = loss_sum / len(loader_train)
         acc = num_correct_sum / len(dataset_train) * 100.
 
         loss_val = -1
@@ -132,7 +169,7 @@ if __name__ == '__main__':
     parser.add_argument('--log_result_step', type=int, default=99999999)
     parser.add_argument('--no_shuffle', action='store_true')
     parser.add_argument('--epochs', type=int, default=40)
-    parser.add_argument('--seed', type=int, default=42)
+    parser.add_argument('--seed', type=int, default=12345)
     parser.add_argument('--gpus', default='', type=str)
     args = parser.parse_args()
 

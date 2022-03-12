@@ -215,8 +215,8 @@ class BiEncoderTrainer(object):
 
         train_iterator = self.get_data_iterator(
             cfg.train.batch_size,
-            True,
-            shuffle=True,
+            True,  # is_train_set
+            shuffle=self.cfg.train.shuffle,  # Can turn off shuffling
             shuffle_seed=cfg.seed,
             offset=self.start_batch,
             rank=cfg.local_rank,
@@ -607,14 +607,20 @@ class BiEncoderTrainer(object):
 
             if i % log_result_step == 0:
                 lr = self.optimizer.param_groups[0]["lr"]
+
+                self.biencoder.eval()
+                myval = self.validate_average_rank()
+                self.biencoder.train()
+
                 logger.critical(
-                    "Epoch: %d: Step: %d/%d, loss=%f, lr=%f <-----------------------------------",
+                    "Epoch: %d: Step: %d/%d, loss=%f, lr=%f, val=%f <-----------------------------------",
                     epoch,
                     data_iteration,
                     epoch_batches,
                     loss.item(),
                     lr,
-                )  # TODO: Include val monitoring
+                    myval
+                )
 
             if (i + 1) % rolling_loss_step == 0:
                 logger.info("Train batch %d", data_iteration)
