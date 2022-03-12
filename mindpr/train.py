@@ -115,7 +115,7 @@ def main(args):
             scheduler.step()
             optimizer.zero_grad()
 
-            if batch_num % args.log_result_step == 0:
+            if args.log_result_step != 99999999 and batch_num % args.log_result_step == 0:
                 lr = optimizer.param_groups[0]['lr']
                 model.eval()
                 myval, _ = validate_by_rank(model, loader_val, rank,
@@ -141,7 +141,8 @@ def main(args):
                 is_best_string = ' <-------------'
                 loss_val_best = loss_val
 
-        #logger.log(f'Epoch {epoch:3d}: per-batch loss {loss_train:10.4f}, acc {acc:10.2f}, val {loss_val:4.3f} {is_best_string}')
+        if args.log_result_step == 99999999:
+            logger.log(f'Epoch {epoch:3d}: acc {acc:10.2f}, val {loss_val:4.3f} {is_best_string}')
 
     if is_main_process and sd_best is not None:
         logger.log(f'\nDone training | total time {strtime(start_time)} | '
