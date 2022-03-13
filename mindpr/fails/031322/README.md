@@ -9,7 +9,7 @@ This is the same as the DPR's results.
 k=1     k=5     k=20    k=100   filename        num_queries
 46.0%   68.2%   79.1%   86.3%   nq-test.csv     3610
 ```
-I found that DPR always throws away the trailing batches so I did that, but the result using my own loader is still worse (actually more worse now): `./mindpr/run.sh 0,1,2,3,4,5,6,7 --use_my_loader`
+I found that DPR always throws away the trailing batches so I did that, but the result using my own loader is still worse: `./mindpr/run.sh 0,1,2,3,4,5,6,7 --use_my_loader`
 ```
 k=1     k=5     k=20    k=100   filename        num_queries
 44.8%   66.9%   78.6%   85.6%   nq-test.csv     3610
