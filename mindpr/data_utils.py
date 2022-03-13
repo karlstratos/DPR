@@ -219,7 +219,7 @@ class ShardedDataIterator(object):
             items_idxs = [next(cycle_it) for _ in range(self.batch_size)]
             self.iteration += 1
             items = [self.data[idx] for idx in items_idxs]
-            yield items
+            yield items, items_idxs
 
         logger.info("Finished iterating, iteration={}, shard={}".format(self.iteration, self.shard_id))
         # TODO: reset the iteration status?
@@ -302,7 +302,7 @@ class MultiSetDataIterator(object):
             next_item = next(it, None)  # List of BiEncoder samples
             if next_item is not None:
                 self.iteration += 1
-                yield (next_item, source_idx)
+                yield (next_item, source_idx)  # ((items, indices), source_idx)
             else:
                 logger.warning("rank=%d; Next item in the source %s is None", self.rank, source_idx)
 

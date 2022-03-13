@@ -85,7 +85,7 @@ def main(args):
         for batch_num, batch in enumerate(loader_train if args.use_my_loader else
                                           iterator_train.iterate_ds_data(epoch=epoch)):  # Drops trailing batch
             if not args.use_my_loader:
-                samples_batch, dataset = batch
+                (samples_batch, indices), dataset = batch
                 data_iteration = iterator_train.get_iteration()
                 random.seed(args.seed + epoch + data_iteration)
                 biencoder_batch = BiEncoder.create_biencoder_input2(
@@ -104,9 +104,9 @@ def main(args):
                 P_mask = tensorizer.get_attn_mask(P)
                 P_type = biencoder_batch.ctx_segments
                 labels = torch.LongTensor(biencoder_batch.is_positive)
-                batch = [Q, Q_mask, Q_type, P, P_mask, P_type, labels]
+                batch = [Q, Q_mask, Q_type, P, P_mask, P_type, labels, indices]
 
-            #Q, Q_mask, Q_type, P, P_mask, P_type, labels = batch
+            #Q, Q_mask, Q_type, P, P_mask, P_type, labels, indices = batch
             #string = f'\nrank={rank}, batch_num={batch_num}'
             #for q in tokenizer.batch_decode(Q, skip_special_tokens=True):
             #    string += '\n'+q
@@ -114,6 +114,7 @@ def main(args):
             #for p in tokenizer.batch_decode(P, skip_special_tokens=True):
             #    string += '\n'+p[:100]
             #string += '\n'+str(P.size())
+            #string += '\n'+str(indices)
             #print(string)
 
             loss, num_correct = get_loss(model, batch, rank, world_size, device)

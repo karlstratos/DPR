@@ -28,7 +28,7 @@ class DPRDataset(torch.utils.data.Dataset):
         return len(self.samples)
 
     def __getitem__(self, index):
-        return self.samples[index]
+        return self.samples[index], index
 
 
 def text2tensor(tokenizer, inputs, titles=None, max_length=256):
@@ -52,8 +52,9 @@ def tensorize(samples, tokenizer, max_length, shuffle=False,
     labels = []
     titles = []
     texts = []
+    indices = []
 
-    for sample in samples:
+    for sample, index in samples:
         if shuffle:
             random.shuffle(sample['negative_ctxs'])
             random.shuffle(sample['hard_negative_ctxs'])
@@ -78,6 +79,7 @@ def tensorize(samples, tokenizer, max_length, shuffle=False,
         hard_negs = hard_negs[:num_hard_negatives]
         titles.extend([hard_neg['title'] for hard_neg in hard_negs])
         texts.extend([hard_neg['text'] for hard_neg in hard_negs])
+        indices.append(index)
 
     queries = text2tensor(tokenizer, queries, max_length=max_length)
 
@@ -97,7 +99,7 @@ def tensorize(samples, tokenizer, max_length, shuffle=False,
     P_type = passages['token_type_ids']
     labels = torch.LongTensor(labels)  # (B,) elements in [0, MB)
 
-    return Q, Q_mask, Q_type, P, P_mask, P_type, labels
+    return Q, Q_mask, Q_type, P, P_mask, P_type, labels, indices
 
 
 def get_loaders(dataset_train, dataset_val, tokenizer, args, rank=-1,

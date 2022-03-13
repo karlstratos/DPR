@@ -60,7 +60,7 @@ def run_forward_train(model, batch, rank=-1, world_size=-1, device=None):
     if device is None:
         device = torch.device('cpu')
     Q, Q_mask, Q_type, P, P_mask, P_type, labels  = [tensor.to(device) for
-                                                     tensor in batch]
+                                                     tensor in batch[:-1]]
     X, Y = model(Q, Q_mask, Q_type, P, P_mask, P_type)
 
     if world_size != -1:
@@ -110,7 +110,7 @@ def validate_by_rank(model, loader, rank=-1, world_size=-1,
     model.eval()
     with torch.no_grad():
         for batch in tqdm(loader, disable=disable_tqdm):
-            Q, Q_mask, Q_type, P, P_mask, P_type, labels = batch
+            Q, Q_mask, Q_type, P, P_mask, P_type, labels, _ = batch
 
             X, _ = model(Q=Q.to(device), Q_mask=Q_mask.to(device),
                          Q_type=Q_type.to(device))
