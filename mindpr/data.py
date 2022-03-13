@@ -198,7 +198,7 @@ def get_loader_passages(dataset, collate_fn, args, rank=-1, world_size=-1):
 def tensorize_questions(samples, tokenizer, max_length):
     queries = []
 
-    for sample in samples:
+    for sample, index in samples:
         queries.append(sample['question'])
 
     # [CLS] query [SEP]

@@ -1,7 +1,8 @@
 #!/bin/bash
 # chmod 777 run.sh
-# ./run.sh 0,1,2,3,4,5,6,7
-# ./run.sh 0,1,2,3,4,5,6,7 --use_my_loader
+# ./mindpr/run.sh 0,1,2,3,4,5,6,7
+# ./mindpr/run.sh 0,1,2,3,4,5,6,7 --use_my_loader
+# ./mindpr/run.sh 0,1,2,3,4,5,6,7 --seed=12345
 
 OUTDIR="/data/local/DPR_runs/mindpr_runs/nq"
 mkdir -p OUTDIR
