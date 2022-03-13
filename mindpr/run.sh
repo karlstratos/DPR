@@ -1,6 +1,7 @@
 #!/bin/bash
 # chmod 777 run.sh
 # ./run.sh 0,1,2,3,4,5,6,7
+# ./run.sh 0,1,2,3,4,5,6,7 --use_my_loader
 
 OUTDIR="/data/local/DPR_runs/mindpr_runs/nq"
 mkdir -p OUTDIR
@@ -20,7 +21,9 @@ commas="${gpus//[^,]}"
 num_commas="${#commas}"
 num_gpus="$((num_commas+1))"
 
-train="torchrun --standalone --nnodes=1 --nproc_per_node=${num_gpus} mindpr/train.py ${model} ${data_train} ${data_val} --num_warmup_steps 1237 --num_workers 2 --gpus ${gpus}"
+optional1=${2:-}
+
+train="torchrun --standalone --nnodes=1 --nproc_per_node=${num_gpus} mindpr/train.py ${model} ${data_train} ${data_val} --num_warmup_steps 1237 --num_workers 2 --gpus ${gpus} ${optional1}"
 encode="torchrun --standalone --nnodes=1 --nproc_per_node=${num_gpus} mindpr/encode_passages_sharded.py ${model} '${data_wiki_shards}' ${OUTDIR} --batch_size 2048 --num_workers 2 --gpus ${gpus}"
 search="python mindpr/search.py ${model} ${data_test} '${pembs}' ${outfile} ${data_wiki_whole} --gpu 0"
 

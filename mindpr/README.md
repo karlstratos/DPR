@@ -46,3 +46,13 @@ vs
 CUDA_VISIBLE_DEVICES=0,1,2,3,4 python -m torch.distributed.launch --nproc_per_node=5 train_dense_encoder.py train=biencoder_nq train_datasets=[nq_train10] dev_datasets=[nq_train10] train.batch_size=1 train.dev_batch_size=1 train.num_train_epochs=5 output_dir=/data/local/DPR_runs/toy  train.learning_rate=1e-4 train.warmup_steps=1 train.log_batch_step=1 train.skip_saving=True val_av_rank_start_epoch=0
 ```
 Val different but loss same
+
+
+## Data loading
+Always drop the last *trailing* batch (so batch_size 5 here will not drop anything)
+```
+python mindpr/train.py /tmp/model downloads/data/retriever/nq-train10.json downloads/data/retriever/nq-train10.json --batch_size 4 --batch_size_val 2 --num_warmup_steps 1 --lr 1e-4 --epochs 1 --gpus 0 --start_epoch_val 0 --log_result_step 1
+python mindpr/train.py /tmp/model downloads/data/retriever/nq-train10.json downloads/data/retriever/nq-train10.json --batch_size 4 --batch_size_val 2 --num_warmup_steps 1 --lr 1e-4 --epochs 1 --gpus 0 --start_epoch_val 0 --log_result_step 1 --use_my_loader
+torchrun --standalone --nnodes=1 --nproc_per_node=2 mindpr/train.py /tmp/model downloads/data/retriever/nq-train10.json downloads/data/retriever/nq-train10.json --batch_size 4 --batch_size_val 2 --num_warmup_steps 1 --lr 1e-4 --epochs 1 --gpus 0,1 --start_epoch_val 0 --log_result_step 1
+torchrun --standalone --nnodes=1 --nproc_per_node=2 mindpr/train.py /tmp/model downloads/data/retriever/nq-train10.json downloads/data/retriever/nq-train10.json --batch_size 4 --batch_size_val 2 --num_warmup_steps 1 --lr 1e-4 --epochs 1 --gpus 0,1 --start_epoch_val 0 --log_result_step 1 --use_my_loader
+```

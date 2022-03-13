@@ -82,28 +82,39 @@ def main(args):
         loss_sum = 0.
         num_correct_sum = 0
 
-        for batch_num, samples_batch in enumerate(iterator_train.iterate_ds_data(epoch=epoch)):  # Drops trailing batch
-            if True:
-                samples_batch, dataset = samples_batch
-            data_iteration = iterator_train.get_iteration()
-            random.seed(args.seed + epoch + data_iteration)
-            biencoder_batch = BiEncoder.create_biencoder_input2(
-                samples_batch,
-                tensorizer,
-                True,
-                1,  # train.hard_negatives
-                0,  # train.other_negatives
-                shuffle=not args.no_shuffle,
-                shuffle_positives=False,
-            )
-            Q = biencoder_batch.question_ids
-            Q_mask = tensorizer.get_attn_mask(Q)
-            Q_type = biencoder_batch.question_segments
-            P = biencoder_batch.context_ids
-            P_mask = tensorizer.get_attn_mask(P)
-            P_type = biencoder_batch.ctx_segments
-            labels = torch.LongTensor(biencoder_batch.is_positive)
-            batch = [Q, Q_mask, Q_type, P, P_mask, P_type, labels]
+        for batch_num, batch in enumerate(loader_train if args.use_my_loader else
+                                          iterator_train.iterate_ds_data(epoch=epoch)):  # Drops trailing batch
+            if not args.use_my_loader:
+                samples_batch, dataset = batch
+                data_iteration = iterator_train.get_iteration()
+                random.seed(args.seed + epoch + data_iteration)
+                biencoder_batch = BiEncoder.create_biencoder_input2(
+                    samples_batch,
+                    tensorizer,
+                    True,
+                    1,  # train.hard_negatives
+                    0,  # train.other_negatives
+                    shuffle=not args.no_shuffle,
+                    shuffle_positives=False,
+                )
+                Q = biencoder_batch.question_ids
+                Q_mask = tensorizer.get_attn_mask(Q)
+                Q_type = biencoder_batch.question_segments
+                P = biencoder_batch.context_ids
+                P_mask = tensorizer.get_attn_mask(P)
+                P_type = biencoder_batch.ctx_segments
+                labels = torch.LongTensor(biencoder_batch.is_positive)
+                batch = [Q, Q_mask, Q_type, P, P_mask, P_type, labels]
+
+            #Q, Q_mask, Q_type, P, P_mask, P_type, labels = batch
+            #string = f'\nrank={rank}, batch_num={batch_num}'
+            #for q in tokenizer.batch_decode(Q, skip_special_tokens=True):
+            #    string += '\n'+q
+            #string += '\n'+str(Q.size())
+            #for p in tokenizer.batch_decode(P, skip_special_tokens=True):
+            #    string += '\n'+p[:100]
+            #string += '\n'+str(P.size())
+            #print(string)
 
             loss, num_correct = get_loss(model, batch, rank, world_size, device)
             loss_sum += loss.item()
@@ -169,6 +180,7 @@ if __name__ == '__main__':
     parser.add_argument('--start_epoch_val', type=int, default=30)
     parser.add_argument('--log_result_step', type=int, default=99999999)
     parser.add_argument('--no_shuffle', action='store_true')
+    parser.add_argument('--use_my_loader', action='store_true')
     parser.add_argument('--epochs', type=int, default=40)
     parser.add_argument('--seed', type=int, default=12345)
     parser.add_argument('--gpus', default='', type=str)

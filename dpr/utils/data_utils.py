@@ -88,10 +88,15 @@ class ShardedDataIterator(object):
             #print(self.max_iterations)  # 1
             #exit()
 
-            # BUT this happens for each PROCESS. So, when doing distributed, you will not throw away anything.
-            # Example: num examples 3, batch size 2, 2 processes will take 1 gradient step corresponding to a batch consisting of
-            # [0, 2]   # indep
-            # [2, 1]   # indep
+            #-------------------------------------------------------
+            # This happens for each PROCESS, and each process is assigned a nonoverlapping subset of data.
+            # So, when doing distributed, you will throw away the trailing batch for each process.
+            # Example: num examples 10, batch size 4, 2 processes might be assigned
+            #    Process 1: [0, 2, 4, 6, 8]
+            #    Process 2: [1, 3, 5, 7, 9]
+            # Then, an epoch will involve **1** gradient step on 8 examples that look like
+            #        [[4, 2, 6, 8]              # Process 1 threw away example 0
+            #         [5, 7, 1, 3]]             # Process 2 threw away example 9
 
         logger.info(
             "samples_per_shard=%d, shard_start_idx=%d, shard_end_idx=%d, max_iterations=%d",
