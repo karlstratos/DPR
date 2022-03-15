@@ -17,10 +17,8 @@ from torch import Tensor as T
 from torch import nn
 from transformers.tokenization_bert import BertTokenizer
 
-from data_utils import Tensorizer
 
-
-class BertTensorizer(Tensorizer):
+class BertTensorizer:
     def __init__(self, tokenizer: BertTokenizer, max_length: int, pad_to_max: bool = True):
         self.tokenizer = tokenizer
         self.max_length = max_length

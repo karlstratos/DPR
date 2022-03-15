@@ -10,7 +10,6 @@ BiEncoder component + loss function for 'all-in-batch' training
 """
 
 import collections
-import logging
 import random
 from typing import Tuple, List
 
@@ -21,10 +20,7 @@ from torch import Tensor as T
 from torch import nn
 
 from biencoder_data import BiEncoderSample
-from data_utils import Tensorizer
 from model_utils import CheckpointState
-
-logger = logging.getLogger(__name__)
 
 BiEncoderBatch = collections.namedtuple(
     "BiENcoderInput",
@@ -138,106 +134,11 @@ class BiEncoder(nn.Module):
 
         return q_pooled_out, ctx_pooled_out
 
-    # TODO delete once moved to the new method
-    @classmethod
-    def create_biencoder_input(
-        cls,
-        samples: List,
-        tensorizer: Tensorizer,
-        insert_title: bool,
-        num_hard_negatives: int = 0,
-        num_other_negatives: int = 0,
-        shuffle: bool = True,
-        shuffle_positives: bool = False,
-        hard_neg_fallback: bool = True,
-    ) -> BiEncoderBatch:
-        """
-        Creates a batch of the biencoder training tuple.
-        :param samples: list of data items (from json) to create the batch for
-        :param tensorizer: components to create model input tensors from a text sequence
-        :param insert_title: enables title insertion at the beginning of the context sequences
-        :param num_hard_negatives: amount of hard negatives per question (taken from samples' pools)
-        :param num_other_negatives: amount of other negatives per question (taken from samples' pools)
-        :param shuffle: shuffles negative passages pools
-        :param shuffle_positives: shuffles positive passages pools
-        :return: BiEncoderBatch tuple
-        """
-        question_tensors = []
-        ctx_tensors = []
-        positive_ctx_indices = []
-        hard_neg_ctx_indices = []
-
-        for sample in samples:
-            # ctx+ & [ctx-] composition
-            # as of now, take the first(gold) ctx+ only
-            if shuffle and shuffle_positives:
-                positive_ctxs = sample["positive_ctxs"]
-                positive_ctx = positive_ctxs[np.random.choice(len(positive_ctxs))]
-            else:
-                positive_ctx = sample["positive_ctxs"][0]
-
-            neg_ctxs = sample["negative_ctxs"]
-            hard_neg_ctxs = sample["hard_negative_ctxs"]
-
-            if shuffle:
-                random.shuffle(neg_ctxs)
-                random.shuffle(hard_neg_ctxs)
-
-            if hard_neg_fallback and len(hard_neg_ctxs) == 0:
-                hard_neg_ctxs = neg_ctxs[0:num_hard_negatives]
-
-            neg_ctxs = neg_ctxs[0:num_other_negatives]
-            hard_neg_ctxs = hard_neg_ctxs[0:num_hard_negatives]
-
-            all_ctxs = [positive_ctx] + neg_ctxs + hard_neg_ctxs
-            hard_negatives_start_idx = 1
-            hard_negatives_end_idx = 1 + len(hard_neg_ctxs)
-
-            current_ctxs_len = len(ctx_tensors)
-
-            sample_ctxs_tensors = [
-                tensorizer.text_to_tensor(
-                    ctx["text"],
-                    title=ctx["title"] if (insert_title and "title" in ctx) else None,
-                )
-                for ctx in all_ctxs
-            ]
-
-            ctx_tensors.extend(sample_ctxs_tensors)
-            positive_ctx_indices.append(current_ctxs_len)
-            hard_neg_ctx_indices.append(
-                [
-                    i
-                    for i in range(
-                        current_ctxs_len + hard_negatives_start_idx,
-                        current_ctxs_len + hard_negatives_end_idx,
-                    )
-                ]
-            )
-
-            question_tensors.append(tensorizer.text_to_tensor(question))
-
-        ctxs_tensor = torch.cat([ctx.view(1, -1) for ctx in ctx_tensors], dim=0)
-        questions_tensor = torch.cat([q.view(1, -1) for q in question_tensors], dim=0)
-
-        ctx_segments = torch.zeros_like(ctxs_tensor)
-        question_segments = torch.zeros_like(questions_tensor)
-
-        return BiEncoderBatch(
-            questions_tensor,
-            question_segments,
-            ctxs_tensor,
-            ctx_segments,
-            positive_ctx_indices,
-            hard_neg_ctx_indices,
-            "question",
-        )
-
     @classmethod
     def create_biencoder_input2(
         cls,
         samples: List[BiEncoderSample],
-        tensorizer: Tensorizer,
+            tensorizer,
         insert_title: bool,
         num_hard_negatives: int = 0,
         num_other_negatives: int = 0,
@@ -316,15 +217,7 @@ class BiEncoder(nn.Module):
                 ]
             )
 
-            if query_token:
-                # TODO: tmp workaround for EL, remove or revise
-                if query_token == "[START_ENT]":
-                    query_span = _select_span_with_token(question, tensorizer, token_str=query_token)
-                    question_tensors.append(query_span)
-                else:
-                    question_tensors.append(tensorizer.text_to_tensor(" ".join([query_token, question])))
-            else:  # This
-                question_tensors.append(tensorizer.text_to_tensor(question))
+            question_tensors.append(tensorizer.text_to_tensor(question))
 
         ctxs_tensor = torch.cat([ctx.view(1, -1) for ctx in ctx_tensors], dim=0)
         questions_tensor = torch.cat([q.view(1, -1) for q in question_tensors], dim=0)
@@ -400,7 +293,7 @@ class BiEncoderNllLoss(object):
         return dot_product_scores
 
 
-def _select_span_with_token(text: str, tensorizer: Tensorizer, token_str: str = "[START_ENT]") -> T:
+def _select_span_with_token(text: str, tensorizer, token_str: str = "[START_ENT]") -> T:
     id = tensorizer.get_token_id(token_str)
     query_tensor = tensorizer.text_to_tensor(text)
 
@@ -424,7 +317,6 @@ def _select_span_with_token(text: str, tensorizer: Tensorizer, token_str: str = 
 
             query_tensor = _pad_to_len(query_tensor, tensorizer.get_pad_id(), tensorizer.max_length)
             query_tensor[-1] = tensorizer.tokenizer.sep_token_id
-            # logger.info('aligned query_tensor %s', query_tensor)
 
             assert id in query_tensor, "query_tensor={}".format(query_tensor)
             return query_tensor

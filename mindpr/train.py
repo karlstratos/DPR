@@ -42,7 +42,6 @@ def main(args):
 
     iterator_train = my_get_iterator(args.data_train,
                                      args.batch_size,
-                                     True,  # is_train_set
                                      shuffle=not args.no_shuffle,
                                      shuffle_seed=args.seed,
                                      rank=local_rank,
@@ -81,13 +80,15 @@ def main(args):
         model.train()
         loss_sum = 0.
         num_correct_sum = 0
+        if is_distributed:
+            logger.log(f'Calling loader_train.sampler.set_epoch({epoch}) from rank {rank}', force=True)
+            loader_train.sampler.set_epoch(epoch)
 
         for batch_num, batch in enumerate(loader_train if args.use_my_loader else
                                           iterator_train.iterate_ds_data(epoch=epoch)):  # Drops trailing batch
             if not args.use_my_loader:
                 (samples_batch, indices), dataset = batch
-                data_iteration = iterator_train.get_iteration()
-                random.seed(args.seed + epoch + data_iteration)
+                random.seed(args.seed + epoch + iterator_train.iteration)
                 biencoder_batch = BiEncoder.create_biencoder_input2(
                     samples_batch,
                     tensorizer,
