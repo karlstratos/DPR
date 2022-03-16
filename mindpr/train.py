@@ -118,6 +118,7 @@ def main(args):
             #string += '\n'+str(indices)
             #print(string)
 
+            #print(f'rank {rank} computing indices {str(batch[-1])} in batch num {batch_num}')
             loss, num_correct = get_loss(model, batch, rank, world_size, device)
             loss_sum += loss.item()
             num_correct_sum += num_correct.item()

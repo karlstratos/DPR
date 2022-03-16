@@ -117,12 +117,12 @@ def get_loaders(dataset_train, dataset_val, tokenizer, args, rank=-1,
             sampler = DistributedSampler(dataset, num_replicas=world_size,
                                          rank=rank, shuffle=shuffle,
                                          seed=args.seed,
-                                         drop_last=True)
+                                         drop_last=False)
 
             loader = DataLoader(dataset, batch_size=batch_size,
                                 shuffle=False, num_workers=args.num_workers,
                                 collate_fn=collate_fn, sampler=sampler,
-                                drop_last=True)
+                                drop_last=False)
             return loader
 
         loader_train = make_distributed_loader(dataset_train, args.batch_size,
@@ -135,7 +135,7 @@ def get_loaders(dataset_train, dataset_val, tokenizer, args, rank=-1,
             loader = DataLoader(dataset, batch_size=batch_size,
                                 shuffle=shuffle, num_workers=args.num_workers,
                                 collate_fn=collate_fn,
-                                drop_last=True)
+                                drop_last=False)
             return loader
 
         loader_train = make_regular_loader(dataset_train, args.batch_size,
@@ -157,11 +157,11 @@ def get_loader_val(dataset_val, tokenizer, args, rank=-1, world_size=-1,
         def make_distributed_loader(dataset, batch_size, collate_fn):
             sampler = DistributedSampler(dataset, num_replicas=world_size,
                                          rank=rank, shuffle=False,
-                                         drop_last=True)
+                                         drop_last=False)
             loader = DataLoader(dataset, batch_size=batch_size,
                                 shuffle=False, num_workers=args.num_workers,
                                 collate_fn=collate_fn, sampler=sampler,
-                                drop_last=True)
+                                drop_last=False)
             return loader
 
         loader_val = make_distributed_loader(dataset_val, args.batch_size_val,
@@ -172,7 +172,7 @@ def get_loader_val(dataset_val, tokenizer, args, rank=-1, world_size=-1,
             loader = DataLoader(dataset, batch_size=batch_size,
                                 shuffle=False, num_workers=args.num_workers,
                                 collate_fn=collate_fn,
-                                drop_last=True)
+                                drop_last=False)
             return loader
 
         loader_val = make_regular_loader(dataset_val, args.batch_size_val,
