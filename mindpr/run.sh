@@ -23,8 +23,10 @@ num_commas="${#commas}"
 num_gpus="$((num_commas+1))"
 
 optional1=${2:-}
+optional2=${3:-}
+optional3=${4:-}
 
-train="torchrun --standalone --nnodes=1 --nproc_per_node=${num_gpus} mindpr/train.py ${model} ${data_train} ${data_val} --num_warmup_steps 1237 --num_workers 2 --gpus ${gpus} ${optional1}"
+train="torchrun --standalone --nnodes=1 --nproc_per_node=${num_gpus} mindpr/train.py ${model} ${data_train} ${data_val} --num_warmup_steps 1237 --num_workers 2 --gpus ${gpus} ${optional1} ${optional2} ${optional3}"
 encode="torchrun --standalone --nnodes=1 --nproc_per_node=${num_gpus} mindpr/encode_passages_sharded.py ${model} '${data_wiki_shards}' ${OUTDIR} --batch_size 2048 --num_workers 2 --gpus ${gpus}"
 search="python mindpr/search.py ${model} ${data_test} '${pembs}' ${outfile} ${data_wiki_whole} --gpu 0"
 

@@ -17,7 +17,7 @@ def main(args):
 
     # Debuggging with the DPR code
     from biencoder import BiEncoder
-    from data_utils import my_get_iterator
+    from data_utils import get_sharder
     from hf_models import BertTensorizer
 
     set_seed(args.seed)
@@ -40,18 +40,17 @@ def main(args):
     logger.log(f'Using device: {str(device)}', force=True)
 
 
-    iterator_train = my_get_iterator(args.data_train,
-                                     args.batch_size,
-                                     shuffle=not args.no_shuffle,
-                                     shuffle_seed=args.seed,
-                                     rank=local_rank,
-                                     world_size=world_size)
+    sharder_train = get_sharder([args.data_train], args.batch_size,
+                                 shuffle=not args.no_shuffle,
+                                 shuffle_seed=args.seed,
+                                 rank=local_rank,
+                                 world_size=world_size)
 
     dataset_train = DPRDataset(args.data_train)
     dataset_val = DPRDataset(args.data_val)
     tokenizer = AutoTokenizer.from_pretrained('bert-base-uncased')
     loader_train, loader_val = get_loaders(dataset_train, dataset_val, tokenizer, args, rank, world_size, args.num_hard_negatives_val, args.num_other_negatives_val)
-    num_training_steps = iterator_train.max_iterations * args.epochs
+    num_training_steps = sharder_train.num_iterations * args.epochs
     effective_batch_size = args.batch_size
     if world_size > 0:
         effective_batch_size *= world_size
@@ -81,14 +80,14 @@ def main(args):
         loss_sum = 0.
         num_correct_sum = 0
         if is_distributed:
-            logger.log(f'Calling loader_train.sampler.set_epoch({epoch}) from rank {rank}', force=True)
+            #logger.log(f'Calling loader_train.sampler.set_epoch({epoch}) from rank {rank}', force=True)
             loader_train.sampler.set_epoch(epoch)
 
         for batch_num, batch in enumerate(loader_train if args.use_my_loader else
-                                          iterator_train.iterate_ds_data(epoch=epoch)):  # Drops trailing batch
+                                          sharder_train.get_iterator(epoch)):
             if not args.use_my_loader:
                 (samples_batch, indices), dataset = batch
-                random.seed(args.seed + epoch + iterator_train.iteration)
+                random.seed(args.seed + epoch + sharder_train.iteration)
                 biencoder_batch = BiEncoder.create_biencoder_input2(
                     samples_batch,
                     tensorizer,
